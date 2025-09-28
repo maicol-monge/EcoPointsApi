@@ -2,7 +2,7 @@ require("dotenv").config(); //Cargar variables d entorno
 const express = require("express"); //Crear servidor web
 const cors = require("cors"); //Para permitir solicitudes desde otro dominio
 
-const db = require("./config/db");
+const { db, testConnection } = require("./config/db");
 const userRoutes = require("./routes/userRoutes");
 const pacienteRoutes = require("./routes/pacienteRoutes");
 const adminRoutes = require("./routes/adminRoutes");
@@ -30,18 +30,22 @@ app.use(cors({
 }));
 app.use(express.json()); //Recibir los datos en JSON
 
-db.connect((err) => {
-  if (err) {
-    console.error("Error conectando a la base de datos:", err);
-    process.exit(1); // Sale de la aplicación en caso de error
+// Probar conexión a la base de datos PostgreSQL
+testConnection().then(connected => {
+  if (!connected) {
+    console.error("⚠️  No se pudo conectar a la base de datos");
+    console.error("📋 Verifica:");
+    console.error("   - DATABASE_URL en el archivo .env");
+    console.error("   - Estado de la base de datos en Render");
+    console.error("   - Conectividad de red");
+    // No salir inmediatamente, permitir que el servidor inicie
   }
-  console.log("Conectado a la base de datos MySQL");
 });
 
 // Iniciar servidor
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`Servidor backend corriendo en el puerto ${PORT}`);
+  console.log(`🚀 Servidor backend corriendo en el puerto ${PORT}`);
 });
 
 // Rutas
