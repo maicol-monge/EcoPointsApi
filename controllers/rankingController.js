@@ -1,0 +1,207 @@
+const { db } = require("../config/db");
+
+// ======================
+// RANKING - Controladores
+// ======================
+
+// Obtener ranking de usuarios por puntos
+const obtenerRankingUsuarios = async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+
+    const ranking = await db.query(
+      `SELECT 
+         u.id_usuario, u.nombre, u.apellido, u.puntos_acumulados,
+         ROW_NUMBER() OVER (ORDER BY u.puntos_acumulados DESC) as posicion,
+         COUNT(r.id_reciclaje) as total_reciclajes,
+         COALESCE(SUM(r.peso), 0) as peso_total_reciclado
+       FROM reciclaje.Usuarios u
+       LEFT JOIN reciclaje.Reciclajes r ON u.id_usuario = r.id_usuario AND r.estado = 'A'
+       WHERE u.estado = 'A'
+       GROUP BY u.id_usuario, u.nombre, u.apellido, u.puntos_acumulados
+       ORDER BY u.puntos_acumulados DESC
+       LIMIT $1`,
+      [limit]
+    );
+
+    res.json({
+      success: true,
+      data: ranking.rows
+    });
+
+  } catch (error) {
+    console.error('Error al obtener ranking:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error interno del servidor" 
+    });
+  }
+};
+
+// Obtener posición específica de un usuario
+const obtenerPosicionUsuario = async (req, res) => {
+  try {
+    const { id_usuario } = req.params;
+
+    const posicion = await db.query(
+      `WITH ranking AS (
+         SELECT 
+           u.id_usuario, u.nombre, u.apellido, u.puntos_acumulados,
+           ROW_NUMBER() OVER (ORDER BY u.puntos_acumulados DESC) as posicion
+         FROM reciclaje.Usuarios u
+         WHERE u.estado = 'A'
+       )
+       SELECT * FROM ranking WHERE id_usuario = $1`,
+      [id_usuario]
+    );
+
+    if (posicion.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Usuario no encontrado" 
+      });
+    }
+
+    res.json({
+      success: true,
+      data: posicion.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error al obtener posición:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error interno del servidor" 
+    });
+  }
+};
+
+// Actualizar historial de puntajes
+const actualizarHistorialPuntaje = async (req, res) => {
+  try {
+    const { id_usuario } = req.body;
+
+    if (!id_usuario) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "ID de usuario requerido" 
+      });
+    }
+
+    // Obtener puntos actuales del usuario
+    const usuario = await db.query(
+      'SELECT puntos_acumulados FROM reciclaje.Usuarios WHERE id_usuario = $1 AND estado = $2',
+      [id_usuario, 'A']
+    );
+
+    if (usuario.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Usuario no encontrado" 
+      });
+    }
+
+    // Obtener posición actual
+    const posicion = await db.query(
+      `SELECT COUNT(*) + 1 as posicion
+       FROM reciclaje.Usuarios 
+       WHERE puntos_acumulados > $1 AND estado = 'A'`,
+      [usuario.rows[0].puntos_acumulados]
+    );
+
+    // Insertar en historial
+    const historial = await db.query(
+      `INSERT INTO reciclaje.HistorialPuntaje 
+       (id_usuario, puntosmaximos, posicion, estado) 
+       VALUES ($1, $2, $3, 'A') 
+       RETURNING *`,
+      [id_usuario, usuario.rows[0].puntos_acumulados, posicion.rows[0].posicion]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Historial actualizado exitosamente",
+      data: historial.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error al actualizar historial:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error interno del servidor" 
+    });
+  }
+};
+
+// Obtener historial de puntajes de un usuario
+const obtenerHistorialUsuario = async (req, res) => {
+  try {
+    const { id_usuario } = req.params;
+
+    const historial = await db.query(
+      `SELECT * FROM reciclaje.HistorialPuntaje 
+       WHERE id_usuario = $1 AND estado = 'A'
+       ORDER BY fecha DESC`,
+      [id_usuario]
+    );
+
+    res.json({
+      success: true,
+      data: historial.rows
+    });
+
+  } catch (error) {
+    console.error('Error al obtener historial:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error interno del servidor" 
+    });
+  }
+};
+
+// Obtener estadísticas del ranking
+const obtenerEstadisticasRanking = async (req, res) => {
+  try {
+    const estadisticas = await db.query(`
+      SELECT 
+        COUNT(*) as total_usuarios,
+        MAX(puntos_acumulados) as puntos_maximos,
+        AVG(puntos_acumulados) as promedio_puntos,
+        PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY puntos_acumulados) as mediana_puntos
+      FROM reciclaje.Usuarios 
+      WHERE estado = 'A' AND puntos_acumulados > 0
+    `);
+
+    const topUsuarios = await db.query(`
+      SELECT nombre, apellido, puntos_acumulados,
+             ROW_NUMBER() OVER (ORDER BY puntos_acumulados DESC) as posicion
+      FROM reciclaje.Usuarios 
+      WHERE estado = 'A'
+      ORDER BY puntos_acumulados DESC
+      LIMIT 10
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        estadisticas_generales: estadisticas.rows[0],
+        top_10_usuarios: topUsuarios.rows
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al obtener estadísticas del ranking:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error interno del servidor" 
+    });
+  }
+};
+
+module.exports = {
+  obtenerRankingUsuarios,
+  obtenerPosicionUsuario,
+  actualizarHistorialPuntaje,
+  obtenerHistorialUsuario,
+  obtenerEstadisticasRanking
+};
