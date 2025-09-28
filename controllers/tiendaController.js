@@ -1,5 +1,6 @@
 const { db } = require("../config/db");
 const bcrypt = require("bcryptjs");
+const { obtenerUrlPublica } = require("../services/imageService");
 
 // ======================
 // TIENDAS - Controladores
@@ -166,7 +167,7 @@ const obtenerTiendaPorId = async (req, res) => {
   }
 };
 
-// Obtener productos de una tienda
+// Obtener productos de una tienda - CON URLS DE IMÁGENES
 const obtenerProductosTienda = async (req, res) => {
   try {
     const { id_tienda } = req.params;
@@ -174,14 +175,27 @@ const obtenerProductosTienda = async (req, res) => {
     const productos = await db.query(
       `SELECT id_producto, nombre, descripcion, costo_puntos, stock, imagen, fecha_creacion
        FROM reciclaje.Productos 
-       WHERE id_tienda = $1 AND estado = 'A' AND stock > 0
+       WHERE id_tienda = $1 AND estado = 'A'
        ORDER BY nombre`,
       [id_tienda]
     );
 
+    // Obtener URLs firmadas para las imágenes
+    const productosConImagenes = await Promise.all(
+      productos.rows.map(async (producto) => {
+        if (producto.imagen) {
+          const urlResult = await obtenerUrlPublica(producto.imagen);
+          if (urlResult.success) {
+            producto.imagen_url = urlResult.signedUrl;
+          }
+        }
+        return producto;
+      })
+    );
+
     res.json({
       success: true,
-      data: productos.rows
+      data: productosConImagenes
     });
 
   } catch (error) {

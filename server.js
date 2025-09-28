@@ -12,6 +12,7 @@ const reciclajeRoutes = require("./routes/reciclajeRoutes");
 const canjeRoutes = require("./routes/canjeRoutes");
 const objetoRoutes = require("./routes/objetoRoutes");
 const rankingRoutes = require("./routes/rankingRoutes");
+const imagenRoutes = require("./routes/imagenRoutes");
 
 const app = express(); //Instancia del servidor
 
@@ -64,6 +65,7 @@ app.use("/api/reciclajes", reciclajeRoutes);
 app.use("/api/canjes", canjeRoutes);
 app.use("/api/objetos", objetoRoutes);
 app.use("/api/ranking", rankingRoutes);
+app.use("/api/imagenes", imagenRoutes);
 
 // Ruta de estado de la API
 app.get("/api/status", (req, res) => {

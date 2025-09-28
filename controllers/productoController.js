@@ -1,13 +1,24 @@
 const { db } = require("../config/db");
+const { subirImagen, obtenerUrlPublica, eliminarImagen, validarImagen, obtenerMultiplesUrls } = require("../services/imageService");
+const multer = require('multer');
+
+// Configurar multer para manejar archivos en memoria
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB
+  }
+});
 
 // ======================
 // PRODUCTOS - Controladores
 // ======================
 
-// Crear producto (para tiendas)
+// Crear producto (para tiendas) - CON IMAGEN
 const crearProducto = async (req, res) => {
   try {
-    const { id_tienda, nombre, descripcion, costo_puntos, stock, imagen } = req.body;
+    const { id_tienda, nombre, descripcion, costo_puntos, stock } = req.body;
+    const imagen = req.file; // Archivo de imagen desde multer
 
     if (!id_tienda || !nombre || !costo_puntos || !stock) {
       return res.status(400).json({ 
@@ -29,19 +40,57 @@ const crearProducto = async (req, res) => {
       });
     }
 
+    let imagenPath = null;
+
+    // Si hay imagen, validarla y subirla
+    if (imagen) {
+      const validacion = validarImagen(imagen.originalname, imagen.size);
+      if (!validacion.valid) {
+        return res.status(400).json({ 
+          success: false, 
+          message: validacion.error 
+        });
+      }
+
+      // Subir imagen a Supabase
+      const resultadoImagen = await subirImagen(
+        imagen.buffer, 
+        imagen.originalname, 
+        'productos'
+      );
+
+      if (!resultadoImagen.success) {
+        return res.status(500).json({ 
+          success: false, 
+          message: `Error al subir imagen: ${resultadoImagen.error}` 
+        });
+      }
+
+      imagenPath = resultadoImagen.data.path;
+    }
+
     // Insertar producto
     const resultado = await db.query(
       `INSERT INTO reciclaje.Productos 
        (id_tienda, nombre, descripcion, costo_puntos, stock, imagen, estado) 
        VALUES ($1, $2, $3, $4, $5, $6, 'A') 
        RETURNING *`,
-      [id_tienda, nombre, descripcion, costo_puntos, stock, imagen]
+      [id_tienda, nombre, descripcion, costo_puntos, stock, imagenPath]
     );
+
+    // Si el producto se creó y tiene imagen, obtener la URL firmada
+    const producto = resultado.rows[0];
+    if (producto.imagen) {
+      const urlResult = await obtenerUrlPublica(producto.imagen);
+      if (urlResult.success) {
+        producto.imagen_url = urlResult.signedUrl;
+      }
+    }
 
     res.status(201).json({
       success: true,
       message: "Producto creado exitosamente",
-      data: resultado.rows[0]
+      data: producto
     });
 
   } catch (error) {
@@ -53,7 +102,7 @@ const crearProducto = async (req, res) => {
   }
 };
 
-// Obtener todos los productos disponibles
+// Obtener todos los productos disponibles - CON URLS DE IMÁGENES
 const obtenerProductos = async (req, res) => {
   try {
     const productos = await db.query(
@@ -64,9 +113,22 @@ const obtenerProductos = async (req, res) => {
        ORDER BY p.nombre`
     );
 
+    // Obtener URLs firmadas para las imágenes
+    const productosConImagenes = await Promise.all(
+      productos.rows.map(async (producto) => {
+        if (producto.imagen) {
+          const urlResult = await obtenerUrlPublica(producto.imagen);
+          if (urlResult.success) {
+            producto.imagen_url = urlResult.signedUrl;
+          }
+        }
+        return producto;
+      })
+    );
+
     res.json({
       success: true,
-      data: productos.rows
+      data: productosConImagenes
     });
 
   } catch (error) {
@@ -78,7 +140,7 @@ const obtenerProductos = async (req, res) => {
   }
 };
 
-// Obtener producto por ID
+// Obtener producto por ID - CON URL DE IMAGEN
 const obtenerProductoPorId = async (req, res) => {
   try {
     const { id_producto } = req.params;
@@ -98,9 +160,19 @@ const obtenerProductoPorId = async (req, res) => {
       });
     }
 
+    const prod = producto.rows[0];
+
+    // Obtener URL firmada para la imagen
+    if (prod.imagen) {
+      const urlResult = await obtenerUrlPublica(prod.imagen);
+      if (urlResult.success) {
+        prod.imagen_url = urlResult.signedUrl;
+      }
+    }
+
     res.json({
       success: true,
-      data: producto.rows[0]
+      data: prod
     });
 
   } catch (error) {
@@ -127,7 +199,7 @@ const actualizarStock = async (id_producto, cantidad, operacion = 'restar') => {
   }
 };
 
-// Buscar productos por nombre
+// Buscar productos por nombre - CON URLS DE IMÁGENES
 const buscarProductos = async (req, res) => {
   try {
     const { q } = req.query; // query parameter
@@ -149,9 +221,22 @@ const buscarProductos = async (req, res) => {
       [`%${q}%`]
     );
 
+    // Obtener URLs firmadas para las imágenes
+    const productosConImagenes = await Promise.all(
+      productos.rows.map(async (producto) => {
+        if (producto.imagen) {
+          const urlResult = await obtenerUrlPublica(producto.imagen);
+          if (urlResult.success) {
+            producto.imagen_url = urlResult.signedUrl;
+          }
+        }
+        return producto;
+      })
+    );
+
     res.json({
       success: true,
-      data: productos.rows
+      data: productosConImagenes
     });
 
   } catch (error) {
@@ -163,10 +248,155 @@ const buscarProductos = async (req, res) => {
   }
 };
 
+// Actualizar producto con nueva imagen
+const actualizarProducto = async (req, res) => {
+  try {
+    const { id_producto } = req.params;
+    const { nombre, descripcion, costo_puntos, stock } = req.body;
+    const nuevaImagen = req.file;
+
+    if (!nombre || !costo_puntos || stock === undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Nombre, costo en puntos y stock son requeridos" 
+      });
+    }
+
+    // Verificar que el producto existe
+    const productoExistente = await db.query(
+      'SELECT * FROM reciclaje.Productos WHERE id_producto = $1 AND estado = $2',
+      [id_producto, 'A']
+    );
+
+    if (productoExistente.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Producto no encontrado" 
+      });
+    }
+
+    let imagenPath = productoExistente.rows[0].imagen;
+
+    // Si hay nueva imagen, validarla y subirla
+    if (nuevaImagen) {
+      const validacion = validarImagen(nuevaImagen.originalname, nuevaImagen.size);
+      if (!validacion.valid) {
+        return res.status(400).json({ 
+          success: false, 
+          message: validacion.error 
+        });
+      }
+
+      // Subir nueva imagen
+      const resultadoImagen = await subirImagen(
+        nuevaImagen.buffer, 
+        nuevaImagen.originalname, 
+        'productos'
+      );
+
+      if (!resultadoImagen.success) {
+        return res.status(500).json({ 
+          success: false, 
+          message: `Error al subir imagen: ${resultadoImagen.error}` 
+        });
+      }
+
+      // Eliminar imagen anterior si existe
+      if (imagenPath) {
+        await eliminarImagen(imagenPath);
+      }
+
+      imagenPath = resultadoImagen.data.path;
+    }
+
+    // Actualizar producto
+    const resultado = await db.query(
+      `UPDATE reciclaje.Productos 
+       SET nombre = $1, descripcion = $2, costo_puntos = $3, stock = $4, imagen = $5
+       WHERE id_producto = $6 AND estado = 'A'
+       RETURNING *`,
+      [nombre, descripcion, costo_puntos, stock, imagenPath, id_producto]
+    );
+
+    const producto = resultado.rows[0];
+
+    // Obtener URL firmada para la imagen
+    if (producto.imagen) {
+      const urlResult = await obtenerUrlPublica(producto.imagen);
+      if (urlResult.success) {
+        producto.imagen_url = urlResult.signedUrl;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Producto actualizado exitosamente",
+      data: producto
+    });
+
+  } catch (error) {
+    console.error('Error al actualizar producto:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error interno del servidor" 
+    });
+  }
+};
+
+// Eliminar producto (cambiar estado y eliminar imagen)
+const eliminarProducto = async (req, res) => {
+  try {
+    const { id_producto } = req.params;
+
+    // Obtener datos del producto antes de eliminarlo
+    const producto = await db.query(
+      'SELECT * FROM reciclaje.Productos WHERE id_producto = $1 AND estado = $2',
+      [id_producto, 'A']
+    );
+
+    if (producto.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Producto no encontrado" 
+      });
+    }
+
+    // Cambiar estado del producto
+    const resultado = await db.query(
+      `UPDATE reciclaje.Productos 
+       SET estado = 'I'
+       WHERE id_producto = $1 AND estado = 'A'
+       RETURNING id_producto, nombre`,
+      [id_producto]
+    );
+
+    // Eliminar imagen si existe
+    if (producto.rows[0].imagen) {
+      await eliminarImagen(producto.rows[0].imagen);
+    }
+
+    res.json({
+      success: true,
+      message: "Producto eliminado exitosamente",
+      data: resultado.rows[0]
+    });
+
+  } catch (error) {
+    console.error('Error al eliminar producto:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error interno del servidor" 
+    });
+  }
+};
+
 module.exports = {
+  upload, // Middleware de multer para subir archivos
   crearProducto,
   obtenerProductos,
   obtenerProductoPorId,
   actualizarStock,
-  buscarProductos
+  buscarProductos,
+  actualizarProducto,
+  eliminarProducto
 };
