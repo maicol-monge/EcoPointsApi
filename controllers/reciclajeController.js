@@ -23,7 +23,7 @@ const registrarReciclaje = async (req, res) => {
 
     // Obtener valor por peso del objeto
     const objeto = await client.query(
-      'SELECT * FROM reciclaje.Objetos WHERE id_objeto = $1 AND estado = $2',
+      'SELECT * FROM Objetos WHERE id_objeto = $1 AND estado = $2',
       [id_objeto, 'A']
     );
 
@@ -40,7 +40,7 @@ const registrarReciclaje = async (req, res) => {
 
     // Insertar reciclaje
     const reciclaje = await client.query(
-      `INSERT INTO reciclaje.Reciclajes 
+      `INSERT INTO Reciclajes 
        (id_usuario, id_tienda, id_objeto, peso, puntos_ganados, codigo_qr, estado) 
        VALUES ($1, $2, $3, $4, $5, $6, 'A') 
        RETURNING *`,
@@ -49,7 +49,7 @@ const registrarReciclaje = async (req, res) => {
 
     // Actualizar puntos del usuario
     await client.query(
-      'UPDATE reciclaje.Usuarios SET puntos_acumulados = puntos_acumulados + $1 WHERE id_usuario = $2',
+      'UPDATE Usuarios SET puntos_acumulados = puntos_acumulados + $1 WHERE id_usuario = $2',
       [puntos_ganados, id_usuario]
     );
 
@@ -85,9 +85,9 @@ const obtenerReciclajesUsuario = async (req, res) => {
     const reciclajes = await db.query(
       `SELECT r.*, o.nombre as objeto_nombre, o.descripcion as objeto_descripcion,
               t.nombre as tienda_nombre, t.direccion as tienda_direccion
-       FROM reciclaje.Reciclajes r
-       JOIN reciclaje.Objetos o ON r.id_objeto = o.id_objeto
-       JOIN reciclaje.Tienda t ON r.id_tienda = t.id_tienda
+       FROM Reciclajes r
+       JOIN Objetos o ON r.id_objeto = o.id_objeto
+       JOIN Tienda t ON r.id_tienda = t.id_tienda
        WHERE r.id_usuario = $1 AND r.estado = 'A'
        ORDER BY r.fecha DESC`,
       [id_usuario]
@@ -116,9 +116,9 @@ const obtenerReciclajesTienda = async (req, res) => {
       `SELECT r.*, o.nombre as objeto_nombre, o.descripcion as objeto_descripcion,
               u.nombre as usuario_nombre, u.apellido as usuario_apellido,
               u.documento_num as usuario_documento
-       FROM reciclaje.Reciclajes r
-       JOIN reciclaje.Objetos o ON r.id_objeto = o.id_objeto
-       JOIN reciclaje.Usuarios u ON r.id_usuario = u.id_usuario
+       FROM Reciclajes r
+       JOIN Objetos o ON r.id_objeto = o.id_objeto
+       JOIN Usuarios u ON r.id_usuario = u.id_usuario
        WHERE r.id_tienda = $1 AND r.estado = 'A'
        ORDER BY r.fecha DESC`,
       [id_tienda]
@@ -147,15 +147,15 @@ const obtenerEstadisticasReciclaje = async (req, res) => {
         SUM(peso) as peso_total_reciclado,
         SUM(puntos_ganados) as puntos_totales_generados,
         COUNT(DISTINCT id_usuario) as usuarios_activos
-      FROM reciclaje.Reciclajes 
+      FROM Reciclajes 
       WHERE estado = 'A'
     `);
 
     const objetosMasReciclados = await db.query(`
       SELECT o.nombre, o.descripcion, COUNT(r.id_objeto) as cantidad_reciclajes,
              SUM(r.peso) as peso_total
-      FROM reciclaje.Reciclajes r
-      JOIN reciclaje.Objetos o ON r.id_objeto = o.id_objeto
+      FROM Reciclajes r
+      JOIN Objetos o ON r.id_objeto = o.id_objeto
       WHERE r.estado = 'A'
       GROUP BY o.id_objeto, o.nombre, o.descripcion
       ORDER BY cantidad_reciclajes DESC

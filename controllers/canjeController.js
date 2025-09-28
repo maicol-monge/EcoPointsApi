@@ -24,8 +24,8 @@ const realizarCanje = async (req, res) => {
     // Obtener datos del producto
     const producto = await client.query(
       `SELECT p.*, t.id_tienda, t.nombre as tienda_nombre
-       FROM reciclaje.Productos p
-       JOIN reciclaje.Tienda t ON p.id_tienda = t.id_tienda
+       FROM Productos p
+       JOIN Tienda t ON p.id_tienda = t.id_tienda
        WHERE p.id_producto = $1 AND p.estado = 'A' AND t.estado = 'A'`,
       [id_producto]
     );
@@ -51,7 +51,7 @@ const realizarCanje = async (req, res) => {
 
     // Obtener puntos del usuario
     const usuario = await client.query(
-      'SELECT puntos_acumulados FROM reciclaje.Usuarios WHERE id_usuario = $1 AND estado = $2',
+      'SELECT puntos_acumulados FROM Usuarios WHERE id_usuario = $1 AND estado = $2',
       [id_usuario, 'A']
     );
 
@@ -74,7 +74,7 @@ const realizarCanje = async (req, res) => {
 
     // Registrar canje
     const canje = await client.query(
-      `INSERT INTO reciclaje.Canjes 
+      `INSERT INTO Canjes 
        (id_tienda, id_usuario, id_producto, puntos_usados, estado) 
        VALUES ($1, $2, $3, $4, 'A') 
        RETURNING *`,
@@ -83,13 +83,13 @@ const realizarCanje = async (req, res) => {
 
     // Actualizar puntos del usuario
     await client.query(
-      'UPDATE reciclaje.Usuarios SET puntos_acumulados = puntos_acumulados - $1 WHERE id_usuario = $2',
+      'UPDATE Usuarios SET puntos_acumulados = puntos_acumulados - $1 WHERE id_usuario = $2',
       [prod.costo_puntos, id_usuario]
     );
 
     // Actualizar stock del producto
     await client.query(
-      'UPDATE reciclaje.Productos SET stock = stock - 1 WHERE id_producto = $1',
+      'UPDATE Productos SET stock = stock - 1 WHERE id_producto = $1',
       [id_producto]
     );
 
@@ -125,9 +125,9 @@ const obtenerCanjesUsuario = async (req, res) => {
     const canjes = await db.query(
       `SELECT c.*, p.nombre as producto_nombre, p.descripcion as producto_descripcion,
               p.imagen as producto_imagen, t.nombre as tienda_nombre, t.direccion as tienda_direccion
-       FROM reciclaje.Canjes c
-       JOIN reciclaje.Productos p ON c.id_producto = p.id_producto
-       JOIN reciclaje.Tienda t ON c.id_tienda = t.id_tienda
+       FROM Canjes c
+       JOIN Productos p ON c.id_producto = p.id_producto
+       JOIN Tienda t ON c.id_tienda = t.id_tienda
        WHERE c.id_usuario = $1 AND c.estado = 'A'
        ORDER BY c.fecha DESC`,
       [id_usuario]
@@ -156,9 +156,9 @@ const obtenerCanjesTienda = async (req, res) => {
       `SELECT c.*, p.nombre as producto_nombre, p.descripcion as producto_descripcion,
               u.nombre as usuario_nombre, u.apellido as usuario_apellido,
               u.documento_num as usuario_documento
-       FROM reciclaje.Canjes c
-       JOIN reciclaje.Productos p ON c.id_producto = p.id_producto
-       JOIN reciclaje.Usuarios u ON c.id_usuario = u.id_usuario
+       FROM Canjes c
+       JOIN Productos p ON c.id_producto = p.id_producto
+       JOIN Usuarios u ON c.id_usuario = u.id_usuario
        WHERE c.id_tienda = $1 AND c.estado = 'A'
        ORDER BY c.fecha DESC`,
       [id_tienda]
@@ -204,8 +204,8 @@ const verificarDisponibilidadCanje = async (req, res) => {
            WHEN p.stock <= 0 THEN 'sin_stock'
            ELSE 'disponible'
          END as motivo
-       FROM reciclaje.Productos p
-       CROSS JOIN reciclaje.Usuarios u
+       FROM Productos p
+       CROSS JOIN Usuarios u
        WHERE p.id_producto = $1 AND u.id_usuario = $2 
          AND p.estado = 'A' AND u.estado = 'A'`,
       [id_producto, id_usuario]

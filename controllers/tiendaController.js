@@ -20,7 +20,7 @@ const registrarTienda = async (req, res) => {
 
     // Verificar si la tienda ya existe
     const tiendaExistente = await db.query(
-      'SELECT * FROM reciclaje.Tienda WHERE correo = $1',
+      'SELECT * FROM Tienda WHERE correo = $1',
       [correo]
     );
 
@@ -36,7 +36,7 @@ const registrarTienda = async (req, res) => {
 
     // Insertar tienda
     const resultado = await db.query(
-      `INSERT INTO reciclaje.Tienda 
+      `INSERT INTO Tienda 
        (nombre, direccion, correo, password, estado) 
        VALUES ($1, $2, $3, $4, 'A') 
        RETURNING id_tienda, nombre, direccion, correo, fecha_registro`,
@@ -72,7 +72,7 @@ const loginTienda = async (req, res) => {
 
     // Buscar tienda
     const tienda = await db.query(
-      'SELECT * FROM reciclaje.Tienda WHERE correo = $1 AND estado = $2',
+      'SELECT * FROM Tienda WHERE correo = $1 AND estado = $2',
       [correo, 'A']
     );
 
@@ -115,7 +115,7 @@ const obtenerTiendas = async (req, res) => {
   try {
     const tiendas = await db.query(
       `SELECT id_tienda, nombre, direccion, correo, fecha_registro 
-       FROM reciclaje.Tienda 
+       FROM Tienda 
        WHERE estado = 'A' 
        ORDER BY nombre`
     );
@@ -141,7 +141,7 @@ const obtenerTiendaPorId = async (req, res) => {
 
     const tienda = await db.query(
       `SELECT id_tienda, nombre, direccion, correo, fecha_registro 
-       FROM reciclaje.Tienda 
+       FROM Tienda 
        WHERE id_tienda = $1 AND estado = 'A'`,
       [id_tienda]
     );
@@ -174,7 +174,7 @@ const obtenerProductosTienda = async (req, res) => {
 
     const productos = await db.query(
       `SELECT id_producto, nombre, descripcion, costo_puntos, stock, imagen, fecha_creacion
-       FROM reciclaje.Productos 
+       FROM Productos 
        WHERE id_tienda = $1 AND estado = 'A'
        ORDER BY nombre`,
       [id_tienda]

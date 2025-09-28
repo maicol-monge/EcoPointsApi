@@ -18,7 +18,7 @@ const crearObjeto = async (req, res) => {
 
     // Insertar objeto
     const resultado = await db.query(
-      `INSERT INTO reciclaje.Objetos 
+      `INSERT INTO Objetos 
        (nombre, descripcion, valor_por_peso, estado) 
        VALUES ($1, $2, $3, 'A') 
        RETURNING *`,
@@ -44,7 +44,7 @@ const crearObjeto = async (req, res) => {
 const obtenerObjetos = async (req, res) => {
   try {
     const objetos = await db.query(
-      `SELECT * FROM reciclaje.Objetos 
+      `SELECT * FROM Objetos 
        WHERE estado = 'A' 
        ORDER BY nombre`
     );
@@ -69,7 +69,7 @@ const obtenerObjetoPorId = async (req, res) => {
     const { id_objeto } = req.params;
 
     const objeto = await db.query(
-      'SELECT * FROM reciclaje.Objetos WHERE id_objeto = $1 AND estado = $2',
+      'SELECT * FROM Objetos WHERE id_objeto = $1 AND estado = $2',
       [id_objeto, 'A']
     );
 
@@ -108,7 +108,7 @@ const actualizarObjeto = async (req, res) => {
     }
 
     const resultado = await db.query(
-      `UPDATE reciclaje.Objetos 
+      `UPDATE Objetos 
        SET nombre = $1, descripcion = $2, valor_por_peso = $3
        WHERE id_objeto = $4 AND estado = 'A'
        RETURNING *`,
@@ -143,7 +143,7 @@ const eliminarObjeto = async (req, res) => {
     const { id_objeto } = req.params;
 
     const resultado = await db.query(
-      `UPDATE reciclaje.Objetos 
+      `UPDATE Objetos 
        SET estado = 'I'
        WHERE id_objeto = $1 AND estado = 'A'
        RETURNING id_objeto, nombre`,
@@ -185,7 +185,7 @@ const calcularPuntos = async (req, res) => {
     }
 
     const objeto = await db.query(
-      'SELECT * FROM reciclaje.Objetos WHERE id_objeto = $1 AND estado = $2',
+      'SELECT * FROM Objetos WHERE id_objeto = $1 AND estado = $2',
       [id_objeto, 'A']
     );
 

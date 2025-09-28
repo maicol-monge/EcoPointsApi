@@ -29,7 +29,7 @@ const crearProducto = async (req, res) => {
 
     // Verificar que la tienda existe
     const tiendaExiste = await db.query(
-      'SELECT id_tienda FROM reciclaje.Tienda WHERE id_tienda = $1 AND estado = $2',
+      'SELECT id_tienda FROM Tienda WHERE id_tienda = $1 AND estado = $2',
       [id_tienda, 'A']
     );
 
@@ -71,7 +71,7 @@ const crearProducto = async (req, res) => {
 
     // Insertar producto
     const resultado = await db.query(
-      `INSERT INTO reciclaje.Productos 
+      `INSERT INTO Productos 
        (id_tienda, nombre, descripcion, costo_puntos, stock, imagen, estado) 
        VALUES ($1, $2, $3, $4, $5, $6, 'A') 
        RETURNING *`,
@@ -107,8 +107,8 @@ const obtenerProductos = async (req, res) => {
   try {
     const productos = await db.query(
       `SELECT p.*, t.nombre as tienda_nombre, t.direccion as tienda_direccion
-       FROM reciclaje.Productos p
-       JOIN reciclaje.Tienda t ON p.id_tienda = t.id_tienda
+       FROM Productos p
+       JOIN Tienda t ON p.id_tienda = t.id_tienda
        WHERE p.estado = 'A' AND p.stock > 0 AND t.estado = 'A'
        ORDER BY p.nombre`
     );
@@ -147,8 +147,8 @@ const obtenerProductoPorId = async (req, res) => {
 
     const producto = await db.query(
       `SELECT p.*, t.nombre as tienda_nombre, t.direccion as tienda_direccion
-       FROM reciclaje.Productos p
-       JOIN reciclaje.Tienda t ON p.id_tienda = t.id_tienda
+       FROM Productos p
+       JOIN Tienda t ON p.id_tienda = t.id_tienda
        WHERE p.id_producto = $1 AND p.estado = 'A' AND t.estado = 'A'`,
       [id_producto]
     );
@@ -188,8 +188,8 @@ const obtenerProductoPorId = async (req, res) => {
 const actualizarStock = async (id_producto, cantidad, operacion = 'restar') => {
   try {
     const query = operacion === 'restar' 
-      ? 'UPDATE reciclaje.Productos SET stock = stock - $1 WHERE id_producto = $2 AND stock >= $1'
-      : 'UPDATE reciclaje.Productos SET stock = stock + $1 WHERE id_producto = $2';
+      ? 'UPDATE Productos SET stock = stock - $1 WHERE id_producto = $2 AND stock >= $1'
+      : 'UPDATE Productos SET stock = stock + $1 WHERE id_producto = $2';
     
     const resultado = await db.query(query, [cantidad, id_producto]);
     return resultado.rowCount > 0;
@@ -213,8 +213,8 @@ const buscarProductos = async (req, res) => {
 
     const productos = await db.query(
       `SELECT p.*, t.nombre as tienda_nombre, t.direccion as tienda_direccion
-       FROM reciclaje.Productos p
-       JOIN reciclaje.Tienda t ON p.id_tienda = t.id_tienda
+       FROM Productos p
+       JOIN Tienda t ON p.id_tienda = t.id_tienda
        WHERE (LOWER(p.nombre) LIKE LOWER($1) OR LOWER(p.descripcion) LIKE LOWER($1))
          AND p.estado = 'A' AND p.stock > 0 AND t.estado = 'A'
        ORDER BY p.nombre`,
@@ -264,7 +264,7 @@ const actualizarProducto = async (req, res) => {
 
     // Verificar que el producto existe
     const productoExistente = await db.query(
-      'SELECT * FROM reciclaje.Productos WHERE id_producto = $1 AND estado = $2',
+      'SELECT * FROM Productos WHERE id_producto = $1 AND estado = $2',
       [id_producto, 'A']
     );
 
@@ -311,7 +311,7 @@ const actualizarProducto = async (req, res) => {
 
     // Actualizar producto
     const resultado = await db.query(
-      `UPDATE reciclaje.Productos 
+      `UPDATE Productos 
        SET nombre = $1, descripcion = $2, costo_puntos = $3, stock = $4, imagen = $5
        WHERE id_producto = $6 AND estado = 'A'
        RETURNING *`,
@@ -350,7 +350,7 @@ const eliminarProducto = async (req, res) => {
 
     // Obtener datos del producto antes de eliminarlo
     const producto = await db.query(
-      'SELECT * FROM reciclaje.Productos WHERE id_producto = $1 AND estado = $2',
+      'SELECT * FROM Productos WHERE id_producto = $1 AND estado = $2',
       [id_producto, 'A']
     );
 
@@ -363,7 +363,7 @@ const eliminarProducto = async (req, res) => {
 
     // Cambiar estado del producto
     const resultado = await db.query(
-      `UPDATE reciclaje.Productos 
+      `UPDATE Productos 
        SET estado = 'I'
        WHERE id_producto = $1 AND estado = 'A'
        RETURNING id_producto, nombre`,

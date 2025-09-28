@@ -20,7 +20,7 @@ const registrarUsuario = async (req, res) => {
 
     // Verificar si el usuario ya existe
     const usuarioExistente = await db.query(
-      'SELECT * FROM reciclaje.Usuarios WHERE documento_num = $1 OR correo = $2',
+      'SELECT * FROM Usuarios WHERE documento_num = $1 OR correo = $2',
       [documento_num, correo]
     );
 
@@ -36,7 +36,7 @@ const registrarUsuario = async (req, res) => {
 
     // Insertar usuario
     const resultado = await db.query(
-      `INSERT INTO reciclaje.Usuarios 
+      `INSERT INTO Usuarios 
        (nombre, apellido, documento_tipo, documento_num, correo, password, estado) 
        VALUES ($1, $2, $3, $4, $5, $6, 'A') 
        RETURNING id_usuario, nombre, apellido, correo, puntos_acumulados, fecha_registro`,
@@ -72,7 +72,7 @@ const loginUsuario = async (req, res) => {
 
     // Buscar usuario
     const usuario = await db.query(
-      'SELECT * FROM reciclaje.Usuarios WHERE documento_num = $1 AND estado = $2',
+      'SELECT * FROM Usuarios WHERE documento_num = $1 AND estado = $2',
       [documento_num, 'A']
     );
 
@@ -118,7 +118,7 @@ const obtenerPerfilUsuario = async (req, res) => {
     const usuario = await db.query(
       `SELECT id_usuario, nombre, apellido, documento_tipo, documento_num, 
               correo, puntos_acumulados, fecha_registro 
-       FROM reciclaje.Usuarios 
+       FROM Usuarios 
        WHERE id_usuario = $1 AND estado = 'A'`,
       [id_usuario]
     );
@@ -148,8 +148,8 @@ const obtenerPerfilUsuario = async (req, res) => {
 const actualizarPuntos = async (id_usuario, puntos, operacion = 'sumar') => {
   try {
     const query = operacion === 'sumar' 
-      ? 'UPDATE reciclaje.Usuarios SET puntos_acumulados = puntos_acumulados + $1 WHERE id_usuario = $2'
-      : 'UPDATE reciclaje.Usuarios SET puntos_acumulados = puntos_acumulados - $1 WHERE id_usuario = $2';
+      ? 'UPDATE Usuarios SET puntos_acumulados = puntos_acumulados + $1 WHERE id_usuario = $2'
+      : 'UPDATE Usuarios SET puntos_acumulados = puntos_acumulados - $1 WHERE id_usuario = $2';
     
     await db.query(query, [puntos, id_usuario]);
     return true;
@@ -168,9 +168,9 @@ const obtenerHistorialReciclajes = async (req, res) => {
       `SELECT r.id_reciclaje, r.peso, r.puntos_ganados, r.fecha, r.codigo_qr,
               o.nombre as objeto_nombre, o.descripcion as objeto_descripcion,
               t.nombre as tienda_nombre
-       FROM reciclaje.Reciclajes r
-       JOIN reciclaje.Objetos o ON r.id_objeto = o.id_objeto
-       JOIN reciclaje.Tienda t ON r.id_tienda = t.id_tienda
+       FROM Reciclajes r
+       JOIN Objetos o ON r.id_objeto = o.id_objeto
+       JOIN Tienda t ON r.id_tienda = t.id_tienda
        WHERE r.id_usuario = $1 AND r.estado = 'A'
        ORDER BY r.fecha DESC`,
       [id_usuario]
@@ -200,9 +200,9 @@ const obtenerHistorialCanjes = async (req, res) => {
               p.nombre as producto_nombre, p.descripcion as producto_descripcion,
               p.imagen as producto_imagen,
               t.nombre as tienda_nombre
-       FROM reciclaje.Canjes c
-       JOIN reciclaje.Productos p ON c.id_producto = p.id_producto
-       JOIN reciclaje.Tienda t ON c.id_tienda = t.id_tienda
+       FROM Canjes c
+       JOIN Productos p ON c.id_producto = p.id_producto
+       JOIN Tienda t ON c.id_tienda = t.id_tienda
        WHERE c.id_usuario = $1 AND c.estado = 'A'
        ORDER BY c.fecha DESC`,
       [id_usuario]

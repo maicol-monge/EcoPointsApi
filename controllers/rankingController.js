@@ -15,8 +15,8 @@ const obtenerRankingUsuarios = async (req, res) => {
          ROW_NUMBER() OVER (ORDER BY u.puntos_acumulados DESC) as posicion,
          COUNT(r.id_reciclaje) as total_reciclajes,
          COALESCE(SUM(r.peso), 0) as peso_total_reciclado
-       FROM reciclaje.Usuarios u
-       LEFT JOIN reciclaje.Reciclajes r ON u.id_usuario = r.id_usuario AND r.estado = 'A'
+       FROM Usuarios u
+       LEFT JOIN Reciclajes r ON u.id_usuario = r.id_usuario AND r.estado = 'A'
        WHERE u.estado = 'A'
        GROUP BY u.id_usuario, u.nombre, u.apellido, u.puntos_acumulados
        ORDER BY u.puntos_acumulados DESC
@@ -48,7 +48,7 @@ const obtenerPosicionUsuario = async (req, res) => {
          SELECT 
            u.id_usuario, u.nombre, u.apellido, u.puntos_acumulados,
            ROW_NUMBER() OVER (ORDER BY u.puntos_acumulados DESC) as posicion
-         FROM reciclaje.Usuarios u
+         FROM Usuarios u
          WHERE u.estado = 'A'
        )
        SELECT * FROM ranking WHERE id_usuario = $1`,
@@ -90,7 +90,7 @@ const actualizarHistorialPuntaje = async (req, res) => {
 
     // Obtener puntos actuales del usuario
     const usuario = await db.query(
-      'SELECT puntos_acumulados FROM reciclaje.Usuarios WHERE id_usuario = $1 AND estado = $2',
+      'SELECT puntos_acumulados FROM Usuarios WHERE id_usuario = $1 AND estado = $2',
       [id_usuario, 'A']
     );
 
@@ -104,14 +104,14 @@ const actualizarHistorialPuntaje = async (req, res) => {
     // Obtener posición actual
     const posicion = await db.query(
       `SELECT COUNT(*) + 1 as posicion
-       FROM reciclaje.Usuarios 
+       FROM Usuarios 
        WHERE puntos_acumulados > $1 AND estado = 'A'`,
       [usuario.rows[0].puntos_acumulados]
     );
 
     // Insertar en historial
     const historial = await db.query(
-      `INSERT INTO reciclaje.HistorialPuntaje 
+      `INSERT INTO HistorialPuntaje 
        (id_usuario, puntosmaximos, posicion, estado) 
        VALUES ($1, $2, $3, 'A') 
        RETURNING *`,
@@ -139,7 +139,7 @@ const obtenerHistorialUsuario = async (req, res) => {
     const { id_usuario } = req.params;
 
     const historial = await db.query(
-      `SELECT * FROM reciclaje.HistorialPuntaje 
+      `SELECT * FROM HistorialPuntaje 
        WHERE id_usuario = $1 AND estado = 'A'
        ORDER BY fecha DESC`,
       [id_usuario]
@@ -168,14 +168,14 @@ const obtenerEstadisticasRanking = async (req, res) => {
         MAX(puntos_acumulados) as puntos_maximos,
         AVG(puntos_acumulados) as promedio_puntos,
         PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY puntos_acumulados) as mediana_puntos
-      FROM reciclaje.Usuarios 
+      FROM Usuarios 
       WHERE estado = 'A' AND puntos_acumulados > 0
     `);
 
     const topUsuarios = await db.query(`
       SELECT nombre, apellido, puntos_acumulados,
              ROW_NUMBER() OVER (ORDER BY puntos_acumulados DESC) as posicion
-      FROM reciclaje.Usuarios 
+      FROM Usuarios 
       WHERE estado = 'A'
       ORDER BY puntos_acumulados DESC
       LIMIT 10
