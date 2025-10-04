@@ -196,7 +196,7 @@ const obtenerHistorialCanjes = async (req, res) => {
     const { id_usuario } = req.params;
 
     const historial = await db.query(
-      `SELECT c.id_canje, c.puntos_usados, c.fecha,
+      `SELECT c.id_canje, c.puntos_usados, c.cantidad_producto, c.fecha,
               p.nombre as producto_nombre, p.descripcion as producto_descripcion,
               p.imagen as producto_imagen,
               t.nombre as tienda_nombre

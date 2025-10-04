@@ -6,6 +6,7 @@ const {
   obtenerReciclajesTienda,
   obtenerEstadisticasReciclaje
 } = require("../controllers/reciclajeController");
+const { crearSesionReciclaje, confirmarSesionReciclaje } = require("../controllers/sesionReciclajeController");
 
 // ======================
 // RUTAS DE RECICLAJES
@@ -13,6 +14,12 @@ const {
 
 // POST /api/reciclajes - Registrar nuevo reciclaje
 router.post("/", registrarReciclaje);
+
+// POST /api/reciclajes/sesion - Crear sesión (TIENDA genera QR)
+router.post("/sesion", crearSesionReciclaje);
+
+// POST /api/reciclajes/sesion/:id/confirm - Confirmar sesión (USUARIO escanea)
+router.post("/sesion/:id/confirm", confirmarSesionReciclaje);
 
 // GET /api/reciclajes/usuario/:id_usuario - Obtener reciclajes por usuario
 router.get("/usuario/:id_usuario", obtenerReciclajesUsuario);

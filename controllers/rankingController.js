@@ -141,7 +141,7 @@ const obtenerHistorialUsuario = async (req, res) => {
     const historial = await db.query(
       `SELECT * FROM HistorialPuntaje 
        WHERE id_usuario = $1 AND estado = 'A'
-       ORDER BY fecha DESC`,
+       ORDER BY fecha_actualizacion DESC`,
       [id_usuario]
     );
 

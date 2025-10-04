@@ -9,7 +9,7 @@ const { obtenerUrlPublica } = require("../services/imageService");
 // Registrar tienda
 const registrarTienda = async (req, res) => {
   try {
-    const { nombre, direccion, correo, password } = req.body;
+  const { nombre, direccion, correo, password, municipio, departamento, pais } = req.body;
 
     if (!nombre || !correo || !password) {
       return res.status(400).json({ 
@@ -37,10 +37,10 @@ const registrarTienda = async (req, res) => {
     // Insertar tienda
     const resultado = await db.query(
       `INSERT INTO Tienda 
-       (nombre, direccion, correo, password, estado) 
-       VALUES ($1, $2, $3, $4, 'A') 
-       RETURNING id_tienda, nombre, direccion, correo, fecha_registro`,
-      [nombre, direccion, correo, hashedPassword]
+       (nombre, direccion, correo, password, municipio, departamento, pais, estado) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'A') 
+       RETURNING id_tienda, nombre, direccion, correo, municipio, departamento, pais, fecha_registro`,
+      [nombre, direccion, correo, hashedPassword, municipio || null, departamento || null, pais || null]
     );
 
     res.status(201).json({
@@ -114,7 +114,7 @@ const loginTienda = async (req, res) => {
 const obtenerTiendas = async (req, res) => {
   try {
     const tiendas = await db.query(
-      `SELECT id_tienda, nombre, direccion, correo, fecha_registro 
+      `SELECT id_tienda, nombre, direccion, correo, municipio, departamento, pais, fecha_registro 
        FROM Tienda 
        WHERE estado = 'A' 
        ORDER BY nombre`
@@ -140,7 +140,7 @@ const obtenerTiendaPorId = async (req, res) => {
     const { id_tienda } = req.params;
 
     const tienda = await db.query(
-      `SELECT id_tienda, nombre, direccion, correo, fecha_registro 
+      `SELECT id_tienda, nombre, direccion, correo, municipio, departamento, pais, fecha_registro 
        FROM Tienda 
        WHERE id_tienda = $1 AND estado = 'A'`,
       [id_tienda]
