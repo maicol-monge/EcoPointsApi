@@ -61,19 +61,23 @@ const registrarUsuario = async (req, res) => {
 // Login usuario
 const loginUsuario = async (req, res) => {
   try {
-    const { documento_num, password } = req.body;
+    const { login, documento_num, correo, password } = req.body;
 
-    if (!documento_num || !password) {
+    const loginValue = login ?? documento_num ?? correo;
+
+    if (!loginValue || !password) {
       return res.status(400).json({ 
         success: false, 
-        message: "Documento y contraseña son requeridos" 
+        message: "Documento/correo y contraseña son requeridos" 
       });
     }
 
-    // Buscar usuario
+    // Buscar usuario por documento o correo (correo insensible a mayúsculas)
     const usuario = await db.query(
-      'SELECT * FROM Usuarios WHERE documento_num = $1 AND estado = $2',
-      [documento_num, 'A']
+      `SELECT * FROM Usuarios 
+       WHERE estado = 'A' 
+         AND (documento_num = $1 OR LOWER(correo) = LOWER($1))`,
+      [String(loginValue)]
     );
 
     if (usuario.rows.length === 0) {
@@ -84,7 +88,7 @@ const loginUsuario = async (req, res) => {
     }
 
     // Verificar contraseña
-    const isValidPassword = await bcrypt.compare(password, usuario.rows[0].password);
+  const isValidPassword = await bcrypt.compare(password, usuario.rows[0].password);
     if (!isValidPassword) {
       return res.status(401).json({ 
         success: false, 
