@@ -61,24 +61,39 @@ const registrarUsuario = async (req, res) => {
 // Login usuario
 const loginUsuario = async (req, res) => {
   try {
-    const { login, documento_num, correo, password } = req.body;
+    const { tipo, credencial, login, documento_num, correo, password } = req.body;
 
-    const loginValue = login ?? documento_num ?? correo;
+    // Prioridad: tipo + credencial (más eficiente); fallback: login/documento_num/correo
+    let queryText = null;
+    let queryParam = null;
 
-    if (!loginValue || !password) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Documento/correo y contraseña son requeridos" 
-      });
+    if (tipo && credencial) {
+      const t = String(tipo).toLowerCase();
+      if (t === 'dui' || t === 'documento' || t === 'documento_num') {
+        queryText = `SELECT * FROM Usuarios WHERE estado = 'A' AND documento_num = $1`;
+        queryParam = String(credencial);
+      } else if (t === 'correo' || t === 'email') {
+        // Nota: igualdad exacta para mejor uso de índice; si deseas case-insensitive, considerar CITEXT en DB o un índice sobre lower(correo)
+        queryText = `SELECT * FROM Usuarios WHERE estado = 'A' AND correo = $1`;
+        queryParam = String(credencial);
+      } else {
+        return res.status(400).json({ success: false, message: "Tipo de credencial inválido (use 'dui' o 'correo')" });
+      }
+    } else {
+      const loginValue = login ?? documento_num ?? correo;
+      if (!loginValue) {
+        return res.status(400).json({ success: false, message: "Documento/correo requerido" });
+      }
+      // Compatibilidad: búsqueda por ambos campos (menos eficiente)
+      queryText = `SELECT * FROM Usuarios WHERE estado = 'A' AND (documento_num = $1 OR LOWER(correo) = LOWER($1))`;
+      queryParam = String(loginValue);
     }
 
-    // Buscar usuario por documento o correo (correo insensible a mayúsculas)
-    const usuario = await db.query(
-      `SELECT * FROM Usuarios 
-       WHERE estado = 'A' 
-         AND (documento_num = $1 OR LOWER(correo) = LOWER($1))`,
-      [String(loginValue)]
-    );
+    if (!password) {
+      return res.status(400).json({ success: false, message: "Contraseña requerida" });
+    }
+
+    const usuario = await db.query(queryText, [queryParam]);
 
     if (usuario.rows.length === 0) {
       return res.status(401).json({ 
