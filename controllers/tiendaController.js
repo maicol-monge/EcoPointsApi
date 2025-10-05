@@ -212,5 +212,70 @@ module.exports = {
   loginTienda,
   obtenerTiendas,
   obtenerTiendaPorId,
-  obtenerProductosTienda
+  obtenerProductosTienda,
+  // Nuevo: puntos redimidos/canjeados en una tienda
+  obtenerPuntosRedimidosTienda
 };
+
+// ======================
+// NUEVO: Puntos redimidos por tienda
+// ======================
+// Devuelve la suma de puntos_usados (canjeados) en una tienda específica,
+// con filtros opcionales de fecha (desde/hasta), replicando la lógica del ranking de tiendas.
+async function obtenerPuntosRedimidosTienda(req, res) {
+  try {
+    const { id_tienda } = req.params;
+    const { desde, hasta } = req.query;
+
+    if (!id_tienda) {
+      return res.status(400).json({ success: false, message: "id_tienda es requerido" });
+    }
+
+    // Verificar tienda activa
+    const tienda = await db.query(
+      `SELECT id_tienda, nombre, estado FROM Tienda WHERE id_tienda = $1 AND estado = 'A'`,
+      [id_tienda]
+    );
+    if (tienda.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Tienda no encontrada o inactiva" });
+    }
+
+    const conditions = ["c.estado = 'A'", "c.id_tienda = $1"]; // Sólo canjes activos de la tienda
+    const params = [id_tienda];
+
+    if (desde) {
+      params.push(desde);
+      conditions.push(`c.fecha >= $${params.length}`);
+    }
+    if (hasta) {
+      params.push(hasta);
+      conditions.push(`c.fecha <= $${params.length}`);
+    }
+
+    const query = `
+      SELECT 
+        COALESCE(SUM(c.puntos_usados), 0) AS puntos_redimidos,
+        COUNT(c.id_canje) AS total_canjes,
+        COUNT(DISTINCT c.id_usuario) AS usuarios_unicos
+      FROM Canjes c
+      WHERE ${conditions.join(' AND ')}
+    `;
+
+    const resultado = await db.query(query, params);
+
+    res.json({
+      success: true,
+      data: {
+        id_tienda: parseInt(id_tienda, 10),
+        tienda_nombre: tienda.rows[0].nombre,
+        puntos_redimidos: parseInt(resultado.rows[0].puntos_redimidos || 0, 10),
+        total_canjes: parseInt(resultado.rows[0].total_canjes || 0, 10),
+        usuarios_unicos: parseInt(resultado.rows[0].usuarios_unicos || 0, 10)
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al obtener puntos redimidos por tienda:', error);
+    res.status(500).json({ success: false, message: "Error interno del servidor" });
+  }
+}
