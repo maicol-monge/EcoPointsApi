@@ -13,6 +13,7 @@ const canjeRoutes = require("./routes/canjeRoutes");
 const objetoRoutes = require("./routes/objetoRoutes");
 const rankingRoutes = require("./routes/rankingRoutes");
 const imagenRoutes = require("./routes/imagenRoutes");
+const passwordResetRoutes = require("./routes/passwordResetRoutes");
 
 const app = express(); //Instancia del servidor
 
@@ -66,6 +67,7 @@ app.use("/api/canjes", canjeRoutes);
 app.use("/api/objetos", objetoRoutes);
 app.use("/api/ranking", rankingRoutes);
 app.use("/api/imagenes", imagenRoutes);
+app.use("/api/password", passwordResetRoutes);
 
 // Ruta de estado de la API
 app.get("/api/status", (req, res) => {

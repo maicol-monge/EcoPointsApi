@@ -6,7 +6,9 @@ const {
   obtenerTiendas,
   obtenerTiendaPorId,
   obtenerProductosTienda,
-  obtenerPuntosRedimidosTienda
+  obtenerPuntosRedimidosTienda,
+  actualizarPerfilTienda,
+  cambiarPasswordTienda
 } = require("../controllers/tiendaController");
 
 // ======================
@@ -31,5 +33,11 @@ router.get("/:id_tienda/productos", obtenerProductosTienda);
 // GET /api/tiendas/:id_tienda/puntos-redimidos?desde=YYYY-MM-DD&hasta=YYYY-MM-DD
 // Devuelve la suma de puntos_usados (canjeados) en la tienda y métricas básicas
 router.get("/:id_tienda/puntos-redimidos", obtenerPuntosRedimidosTienda);
+
+// PUT /api/tiendas/:id_tienda - Actualizar perfil de tienda
+router.put("/:id_tienda", actualizarPerfilTienda);
+
+// PUT /api/tiendas/:id_tienda/password - Cambiar contraseña de tienda
+router.put("/:id_tienda/password", cambiarPasswordTienda);
 
 module.exports = router;

@@ -271,8 +271,109 @@ module.exports = {
   registrarUsuario,
   loginUsuario,
   obtenerPerfilUsuario,
+  actualizarPerfilUsuario,
+  cambiarPasswordUsuario,
   actualizarPuntos,
   obtenerHistorialReciclajes,
   obtenerHistorialCanjes,
   obtenerPuntosUsuario
 };
+
+// ======================
+// Actualizar perfil de usuario
+// ======================
+async function actualizarPerfilUsuario(req, res) {
+  try {
+    const { id_usuario } = req.params;
+    const { nombre, apellido, documento_tipo, documento_num, correo } = req.body;
+
+    // Validaciones de unicidad si cambian correo o documento
+    if (correo !== undefined) {
+      const existsCorreo = await db.query(
+        `SELECT 1 FROM Usuarios WHERE correo = $1 AND id_usuario <> $2 AND estado = 'A' LIMIT 1`,
+        [correo, id_usuario]
+      );
+      if (existsCorreo.rows.length > 0) {
+        return res.status(409).json({ success: false, message: 'El correo ya está en uso por otro usuario' });
+      }
+    }
+    if (documento_num !== undefined) {
+      const existsDoc = await db.query(
+        `SELECT 1 FROM Usuarios WHERE documento_num = $1 AND id_usuario <> $2 AND estado = 'A' LIMIT 1`,
+        [documento_num, id_usuario]
+      );
+      if (existsDoc.rows.length > 0) {
+        return res.status(409).json({ success: false, message: 'El número de documento ya está en uso por otro usuario' });
+      }
+    }
+
+    // Construir SET dinámico solo con campos enviados
+    const fields = [];
+    const values = [];
+    let idx = 1;
+
+    if (nombre !== undefined) { fields.push(`nombre = $${idx++}`); values.push(nombre); }
+    if (apellido !== undefined) { fields.push(`apellido = $${idx++}`); values.push(apellido); }
+    if (documento_tipo !== undefined) { fields.push(`documento_tipo = $${idx++}`); values.push(documento_tipo); }
+    if (documento_num !== undefined) { fields.push(`documento_num = $${idx++}`); values.push(documento_num); }
+    if (correo !== undefined) { fields.push(`correo = $${idx++}`); values.push(correo); }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ success: false, message: "No hay campos para actualizar" });
+    }
+
+    values.push(id_usuario);
+
+    const result = await db.query(
+      `UPDATE Usuarios SET ${fields.join(', ')} WHERE id_usuario = $${idx} AND estado = 'A'
+       RETURNING id_usuario, nombre, apellido, documento_tipo, documento_num, correo, puntos_acumulados, fecha_registro`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado o inactivo" });
+    }
+
+    res.json({ success: true, message: 'Perfil actualizado', data: result.rows[0] });
+  } catch (error) {
+    console.error('Error al actualizar perfil de usuario:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+}
+
+// ======================
+// Cambiar contraseña de usuario (requiere contraseña actual)
+// ======================
+async function cambiarPasswordUsuario(req, res) {
+  try {
+    const { id_usuario } = req.params;
+    const { password_actual, password_nueva } = req.body;
+
+    if (!password_actual || !password_nueva) {
+      return res.status(400).json({ success: false, message: 'password_actual y password_nueva son requeridos' });
+    }
+
+    // Obtener hash actual
+    const q = await db.query(`SELECT password FROM Usuarios WHERE id_usuario = $1 AND estado = 'A'`, [id_usuario]);
+    if (q.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Usuario no encontrado o inactivo' });
+    }
+
+    const ok = await bcrypt.compare(password_actual, q.rows[0].password);
+    if (!ok) {
+      return res.status(401).json({ success: false, message: 'Contraseña actual incorrecta' });
+    }
+
+    if (String(password_nueva).length < 8) {
+      return res.status(400).json({ success: false, message: 'La nueva contraseña debe tener al menos 8 caracteres' });
+    }
+
+    const hashed = await bcrypt.hash(password_nueva, 10);
+    await db.query(`UPDATE Usuarios SET password = $1 WHERE id_usuario = $2`, [hashed, id_usuario]);
+
+    res.json({ success: true, message: 'Contraseña actualizada correctamente' });
+  } catch (error) {
+    console.error('Error al cambiar contraseña de usuario:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+}

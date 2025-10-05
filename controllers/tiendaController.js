@@ -214,7 +214,9 @@ module.exports = {
   obtenerTiendaPorId,
   obtenerProductosTienda,
   // Nuevo: puntos redimidos/canjeados en una tienda
-  obtenerPuntosRedimidosTienda
+  obtenerPuntosRedimidosTienda,
+  actualizarPerfilTienda,
+  cambiarPasswordTienda
 };
 
 // ======================
@@ -277,5 +279,92 @@ async function obtenerPuntosRedimidosTienda(req, res) {
   } catch (error) {
     console.error('Error al obtener puntos redimidos por tienda:', error);
     res.status(500).json({ success: false, message: "Error interno del servidor" });
+  }
+}
+
+// ======================
+// Actualizar perfil de tienda
+// ======================
+async function actualizarPerfilTienda(req, res) {
+  try {
+    const { id_tienda } = req.params;
+    const { nombre, direccion, correo, municipio, departamento, pais } = req.body;
+
+    if (correo !== undefined) {
+      const existsCorreo = await db.query(
+        `SELECT 1 FROM Tienda WHERE correo = $1 AND id_tienda <> $2 AND estado = 'A' LIMIT 1`,
+        [correo, id_tienda]
+      );
+      if (existsCorreo.rows.length > 0) {
+        return res.status(409).json({ success: false, message: 'El correo ya está en uso por otra tienda' });
+      }
+    }
+
+    const fields = [];
+    const values = [];
+    let idx = 1;
+
+    if (nombre !== undefined) { fields.push(`nombre = $${idx++}`); values.push(nombre); }
+    if (direccion !== undefined) { fields.push(`direccion = $${idx++}`); values.push(direccion); }
+    if (correo !== undefined) { fields.push(`correo = $${idx++}`); values.push(correo); }
+    if (municipio !== undefined) { fields.push(`municipio = $${idx++}`); values.push(municipio); }
+    if (departamento !== undefined) { fields.push(`departamento = $${idx++}`); values.push(departamento); }
+    if (pais !== undefined) { fields.push(`pais = $${idx++}`); values.push(pais); }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ success: false, message: "No hay campos para actualizar" });
+    }
+
+    values.push(id_tienda);
+    const result = await db.query(
+      `UPDATE Tienda SET ${fields.join(', ')} WHERE id_tienda = $${idx} AND estado = 'A'
+       RETURNING id_tienda, nombre, direccion, correo, municipio, departamento, pais, fecha_registro`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Tienda no encontrada o inactiva' });
+    }
+
+    res.json({ success: true, message: 'Perfil de tienda actualizado', data: result.rows[0] });
+  } catch (error) {
+    console.error('Error al actualizar perfil de tienda:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
+  }
+}
+
+// ======================
+// Cambiar contraseña de tienda (requiere contraseña actual)
+// ======================
+async function cambiarPasswordTienda(req, res) {
+  try {
+    const { id_tienda } = req.params;
+    const { password_actual, password_nueva } = req.body;
+
+    if (!password_actual || !password_nueva) {
+      return res.status(400).json({ success: false, message: 'password_actual y password_nueva son requeridos' });
+    }
+
+    const q = await db.query(`SELECT password FROM Tienda WHERE id_tienda = $1 AND estado = 'A'`, [id_tienda]);
+    if (q.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Tienda no encontrada o inactiva' });
+    }
+
+    const ok = await bcrypt.compare(password_actual, q.rows[0].password);
+    if (!ok) {
+      return res.status(401).json({ success: false, message: 'Contraseña actual incorrecta' });
+    }
+
+    if (String(password_nueva).length < 8) {
+      return res.status(400).json({ success: false, message: 'La nueva contraseña debe tener al menos 8 caracteres' });
+    }
+
+    const hashed = await bcrypt.hash(password_nueva, 10);
+    await db.query(`UPDATE Tienda SET password = $1 WHERE id_tienda = $2`, [hashed, id_tienda]);
+
+    res.json({ success: true, message: 'Contraseña de tienda actualizada correctamente' });
+  } catch (error) {
+    console.error('Error al cambiar contraseña de tienda:', error);
+    res.status(500).json({ success: false, message: 'Error interno del servidor' });
   }
 }

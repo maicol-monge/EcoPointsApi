@@ -4,6 +4,8 @@ const {
   registrarUsuario,
   loginUsuario,
   obtenerPerfilUsuario,
+  actualizarPerfilUsuario,
+  cambiarPasswordUsuario,
   obtenerHistorialReciclajes,
   obtenerHistorialCanjes,
   obtenerPuntosUsuario
@@ -21,6 +23,12 @@ router.post("/login", loginUsuario);
 
 // GET /api/usuarios/perfil/:id_usuario - Obtener perfil de usuario
 router.get("/perfil/:id_usuario", obtenerPerfilUsuario);
+
+// PUT /api/usuarios/perfil/:id_usuario - Actualizar perfil de usuario
+router.put("/perfil/:id_usuario", actualizarPerfilUsuario);
+
+// PUT /api/usuarios/:id_usuario/password - Cambiar contraseña de usuario
+router.put("/:id_usuario/password", cambiarPasswordUsuario);
 
 // GET /api/usuarios/:id_usuario/puntos - Obtener puntos acumulados
 router.get("/:id_usuario/puntos", obtenerPuntosUsuario);
