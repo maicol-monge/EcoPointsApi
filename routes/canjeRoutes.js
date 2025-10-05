@@ -6,6 +6,10 @@ const {
   obtenerCanjesTienda,
   verificarDisponibilidadCanje
 } = require("../controllers/canjeController");
+const {
+  crearSesionCanje,
+  confirmarSesionCanje,
+} = require("../controllers/sesionCanjeController");
 
 // ======================
 // RUTAS DE CANJES
@@ -22,5 +26,15 @@ router.get("/usuario/:id_usuario", obtenerCanjesUsuario);
 
 // GET /api/canjes/tienda/:id_tienda - Obtener canjes por tienda
 router.get("/tienda/:id_tienda", obtenerCanjesTienda);
+
+// ======================
+// RUTAS DE SESIÓN DE CANJE (QR)
+// ======================
+
+// POST /api/canjes/sesion - Crear sesión de canje (TIENDA genera QR)
+router.post("/sesion", crearSesionCanje);
+
+// POST /api/canjes/sesion/:id/confirmar - Confirmar sesión (USUARIO escanea)
+router.post("/sesion/:id/confirmar", confirmarSesionCanje);
 
 module.exports = router;
