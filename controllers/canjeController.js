@@ -1,5 +1,6 @@
 const { db } = require("../config/db");
 const { actualizarStock } = require("./productoController");
+const { obtenerUrlPublica } = require("../services/imageService");
 
 // ======================
 // CANJES - Controladores
@@ -126,8 +127,10 @@ const obtenerCanjesUsuario = async (req, res) => {
     const { id_usuario } = req.params;
 
     const canjes = await db.query(
-      `SELECT c.*, c.cantidad_producto, p.nombre as producto_nombre, p.descripcion as producto_descripcion,
-              p.imagen as producto_imagen, t.nombre as tienda_nombre, t.direccion as tienda_direccion
+      `SELECT c.*, c.cantidad_producto, c.puntos_usados,
+              p.nombre as producto_nombre, p.descripcion as producto_descripcion,
+              p.imagen as producto_imagen,
+              t.nombre as tienda_nombre, t.direccion as tienda_direccion
        FROM Canjes c
        JOIN Productos p ON c.id_producto = p.id_producto
        JOIN Tienda t ON c.id_tienda = t.id_tienda
@@ -136,9 +139,22 @@ const obtenerCanjesUsuario = async (req, res) => {
       [id_usuario]
     );
 
+    // Añadir URL firmada de la imagen del producto
+    const canjesConImagen = await Promise.all(
+      canjes.rows.map(async (row) => {
+        if (row.producto_imagen) {
+          const urlRes = await obtenerUrlPublica(row.producto_imagen);
+          if (urlRes.success) {
+            row.producto_imagen_url = urlRes.signedUrl;
+          }
+        }
+        return row;
+      })
+    );
+
     res.json({
       success: true,
-      data: canjes.rows
+      data: canjesConImagen
     });
 
   } catch (error) {
@@ -156,7 +172,9 @@ const obtenerCanjesTienda = async (req, res) => {
     const { id_tienda } = req.params;
 
     const canjes = await db.query(
-      `SELECT c.*, c.cantidad_producto, p.nombre as producto_nombre, p.descripcion as producto_descripcion,
+      `SELECT c.*, c.cantidad_producto, c.puntos_usados,
+              p.nombre as producto_nombre, p.descripcion as producto_descripcion,
+              p.imagen as producto_imagen,
               u.nombre as usuario_nombre, u.apellido as usuario_apellido,
               u.documento_num as usuario_documento
        FROM Canjes c
@@ -167,9 +185,22 @@ const obtenerCanjesTienda = async (req, res) => {
       [id_tienda]
     );
 
+    // Añadir URL firmada de la imagen del producto
+    const canjesConImagen = await Promise.all(
+      canjes.rows.map(async (row) => {
+        if (row.producto_imagen) {
+          const urlRes = await obtenerUrlPublica(row.producto_imagen);
+          if (urlRes.success) {
+            row.producto_imagen_url = urlRes.signedUrl;
+          }
+        }
+        return row;
+      })
+    );
+
     res.json({
       success: true,
-      data: canjes.rows
+      data: canjesConImagen
     });
 
   } catch (error) {
