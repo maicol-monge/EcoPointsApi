@@ -59,75 +59,85 @@ const obtenerRankingTiendas = async (req, res) => {
   }
 };
 
-// Obtener ranking de usuarios por puntos
+// Obtener ranking de usuarios por puntos históricos (HistorialPuntaje)
 const obtenerRankingUsuarios = async (req, res) => {
   try {
     const { limit = 50 } = req.query;
 
     const ranking = await db.query(
-      `SELECT 
-         u.id_usuario, u.nombre, u.apellido, u.puntos_acumulados,
-         ROW_NUMBER() OVER (ORDER BY u.puntos_acumulados DESC) as posicion,
-         COUNT(r.id_reciclaje) as total_reciclajes,
-         COALESCE(SUM(r.peso), 0) as peso_total_reciclado
+      `WITH h AS (
+         SELECT id_usuario, puntosmaximos, fecha_actualizacion,
+                ROW_NUMBER() OVER (PARTITION BY id_usuario ORDER BY fecha_actualizacion DESC NULLS LAST) rn
+         FROM HistorialPuntaje
+         WHERE estado = 'A'
+       ), ultimo AS (
+         SELECT id_usuario, puntosmaximos FROM h WHERE rn = 1
+       )
+       SELECT 
+         u.id_usuario,
+         u.nombre,
+         u.apellido,
+         COALESCE(ul.puntosmaximos, 0) AS puntos_acumulados,
+         ROW_NUMBER() OVER (ORDER BY COALESCE(ul.puntosmaximos, 0) DESC) AS posicion,
+         COUNT(r.id_reciclaje) AS total_reciclajes,
+         COALESCE(SUM(r.peso), 0) AS peso_total_reciclado
        FROM Usuarios u
+       LEFT JOIN ultimo ul ON ul.id_usuario = u.id_usuario
        LEFT JOIN Reciclajes r ON u.id_usuario = r.id_usuario AND r.estado = 'A'
        WHERE u.estado = 'A'
-       GROUP BY u.id_usuario, u.nombre, u.apellido, u.puntos_acumulados
-       ORDER BY u.puntos_acumulados DESC
+       GROUP BY u.id_usuario, u.nombre, u.apellido, ul.puntosmaximos
+       ORDER BY puntos_acumulados DESC
        LIMIT $1`,
       [limit]
     );
 
-    res.json({
-      success: true,
-      data: ranking.rows
-    });
+    res.json({ success: true, data: ranking.rows });
 
   } catch (error) {
     console.error('Error al obtener ranking:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Error interno del servidor" 
-    });
+    res.status(500).json({ success: false, message: "Error interno del servidor" });
   }
 };
 
-// Obtener posición específica de un usuario
+// Obtener posición específica de un usuario basado en HistorialPuntaje
 const obtenerPosicionUsuario = async (req, res) => {
   try {
     const { id_usuario } = req.params;
 
-    const posicion = await db.query(
-      `WITH ranking AS (
-         SELECT 
-           u.id_usuario, u.nombre, u.apellido, u.puntos_acumulados,
-           ROW_NUMBER() OVER (ORDER BY u.puntos_acumulados DESC) as posicion
+    const resultado = await db.query(
+      `WITH h AS (
+         SELECT id_usuario, puntosmaximos, fecha_actualizacion,
+                ROW_NUMBER() OVER (PARTITION BY id_usuario ORDER BY fecha_actualizacion DESC NULLS LAST) rn
+         FROM HistorialPuntaje
+         WHERE estado = 'A'
+       ), ultimo AS (
+         SELECT id_usuario, puntosmaximos FROM h WHERE rn = 1
+       ), puntos AS (
+         SELECT u.id_usuario, u.nombre, u.apellido, COALESCE(ul.puntosmaximos, 0) AS pts
          FROM Usuarios u
+         LEFT JOIN ultimo ul ON ul.id_usuario = u.id_usuario
          WHERE u.estado = 'A'
        )
-       SELECT * FROM ranking WHERE id_usuario = $1`,
+       SELECT 
+         p.id_usuario,
+         p.nombre,
+         p.apellido,
+         p.pts AS puntos_acumulados,
+         (SELECT COUNT(*) + 1 FROM puntos p2 WHERE p2.pts > p.pts) AS posicion
+       FROM puntos p
+       WHERE p.id_usuario = $1`,
       [id_usuario]
     );
 
-    if (posicion.rows.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Usuario no encontrado" 
-      });
+    if (resultado.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
     }
 
-    res.json({
-      success: true,
-      data: posicion.rows[0]
-    });
+    res.json({ success: true, data: resultado.rows[0] });
 
   } catch (error) {
     console.error('Error al obtener posición:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Error interno del servidor" 
-    });
+    res.status(500).json({ success: false, message: "Error interno del servidor" });
   }
 };
 
