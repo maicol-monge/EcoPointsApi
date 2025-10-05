@@ -390,6 +390,94 @@ const eliminarProducto = async (req, res) => {
   }
 };
 
+// Nuevos listados por stock
+const obtenerProductosAgotados = async (req, res) => {
+    try {
+      const productos = await db.query(
+        `SELECT p.*, t.nombre as tienda_nombre, t.direccion as tienda_direccion
+         FROM Productos p
+         JOIN Tienda t ON p.id_tienda = t.id_tienda
+         WHERE p.estado = 'A' AND t.estado = 'A' AND p.stock <= 0
+         ORDER BY p.nombre`
+      );
+
+      const productosConImagenes = await Promise.all(
+        productos.rows.map(async (producto) => {
+          if (producto.imagen) {
+            const urlResult = await obtenerUrlPublica(producto.imagen);
+            if (urlResult.success) {
+              producto.imagen_url = urlResult.signedUrl;
+            }
+          }
+          return producto;
+        })
+      );
+
+      res.json({ success: true, data: productosConImagenes });
+    } catch (error) {
+      console.error('Error al obtener productos agotados:', error);
+      res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    }
+  };
+
+  const obtenerProductosConStock = async (req, res) => {
+    try {
+      const productos = await db.query(
+        `SELECT p.*, t.nombre as tienda_nombre, t.direccion as tienda_direccion
+         FROM Productos p
+         JOIN Tienda t ON p.id_tienda = t.id_tienda
+         WHERE p.estado = 'A' AND p.stock > 0 AND t.estado = 'A'
+         ORDER BY p.nombre`
+      );
+
+      const productosConImagenes = await Promise.all(
+        productos.rows.map(async (producto) => {
+          if (producto.imagen) {
+            const urlResult = await obtenerUrlPublica(producto.imagen);
+            if (urlResult.success) {
+              producto.imagen_url = urlResult.signedUrl;
+            }
+          }
+          return producto;
+        })
+      );
+
+      res.json({ success: true, data: productosConImagenes });
+    } catch (error) {
+      console.error('Error al obtener productos con stock:', error);
+      res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    }
+  };
+
+  const obtenerTodosProductos = async (req, res) => {
+    try {
+      const productos = await db.query(
+        `SELECT p.*, t.nombre as tienda_nombre, t.direccion as tienda_direccion
+         FROM Productos p
+         JOIN Tienda t ON p.id_tienda = t.id_tienda
+         WHERE p.estado = 'A' AND t.estado = 'A'
+         ORDER BY p.nombre`
+      );
+
+      const productosConImagenes = await Promise.all(
+        productos.rows.map(async (producto) => {
+          if (producto.imagen) {
+            const urlResult = await obtenerUrlPublica(producto.imagen);
+            if (urlResult.success) {
+              producto.imagen_url = urlResult.signedUrl;
+            }
+          }
+          return producto;
+        })
+      );
+
+      res.json({ success: true, data: productosConImagenes });
+    } catch (error) {
+      console.error('Error al obtener todos los productos:', error);
+      res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    }
+  };
+
 module.exports = {
   upload, // Middleware de multer para subir archivos
   crearProducto,
@@ -398,5 +486,9 @@ module.exports = {
   actualizarStock,
   buscarProductos,
   actualizarProducto,
-  eliminarProducto
+  eliminarProducto,
+  obtenerProductosAgotados,
+  obtenerProductosConStock,
+  obtenerTodosProductos
+  
 };

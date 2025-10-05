@@ -7,7 +7,10 @@ const {
   obtenerProductoPorId,
   buscarProductos,
   actualizarProducto,
-  eliminarProducto
+  eliminarProducto,
+  obtenerProductosAgotados,
+  obtenerProductosConStock,
+  obtenerTodosProductos
 } = require("../controllers/productoController");
 
 // ======================
@@ -19,6 +22,15 @@ router.post("/", upload.single('imagen'), crearProducto);
 
 // GET /api/productos - Obtener todos los productos
 router.get("/", obtenerProductos);
+
+// GET /api/productos/agotados - Productos con stock 0 o menor
+router.get("/agotados", obtenerProductosAgotados);
+
+// GET /api/productos/con-stock - Productos con al menos 1 en stock
+router.get("/con-stock", obtenerProductosConStock);
+
+// GET /api/productos/todos - Productos activos con o sin stock
+router.get("/todos", obtenerTodosProductos);
 
 // GET /api/productos/buscar?q=termino - Buscar productos
 router.get("/buscar", buscarProductos);
