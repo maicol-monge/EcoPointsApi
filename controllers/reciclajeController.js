@@ -53,6 +53,27 @@ const registrarReciclaje = async (req, res) => {
       [puntos_ganados, id_usuario]
     );
 
+    // Obtener total actualizado de puntos del usuario
+    const totalActual = await client.query(
+      `SELECT puntos_acumulados FROM Usuarios WHERE id_usuario = $1`,
+      [id_usuario]
+    );
+    const totalPuntos = parseInt(totalActual.rows[0].puntos_acumulados, 10) || 0;
+
+    // Calcular posición actual del usuario tras la actualización
+    const pos = await client.query(
+      `SELECT COUNT(*) + 1 AS posicion
+       FROM Usuarios WHERE estado = 'A' AND puntos_acumulados > $1`,
+      [totalPuntos]
+    );
+
+    // Insertar snapshot en HistorialPuntaje
+    await client.query(
+      `INSERT INTO HistorialPuntaje (id_usuario, puntosmaximos, posicion, estado)
+       VALUES ($1, $2, $3, 'A')`,
+      [id_usuario, totalPuntos, pos.rows[0].posicion]
+    );
+
     await client.query('COMMIT');
 
     res.status(201).json({

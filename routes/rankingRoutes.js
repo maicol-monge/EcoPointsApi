@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const {
+  obtenerRankingTiendas,
   obtenerRankingUsuarios,
   obtenerPosicionUsuario,
   actualizarHistorialPuntaje,
@@ -14,6 +15,9 @@ const {
 
 // GET /api/ranking - Obtener ranking de usuarios
 router.get("/", obtenerRankingUsuarios);
+
+// GET /api/ranking/tiendas - Obtener ranking de tiendas por puntos redimidos
+router.get("/tiendas", obtenerRankingTiendas);
 
 // GET /api/ranking/estadisticas - Obtener estadísticas del ranking
 router.get("/estadisticas", obtenerEstadisticasRanking);

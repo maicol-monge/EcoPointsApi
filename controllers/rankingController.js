@@ -4,6 +4,61 @@ const { db } = require("../config/db");
 // RANKING - Controladores
 // ======================
 
+// Obtener ranking de tiendas por puntos redimidos (canjeados)
+const obtenerRankingTiendas = async (req, res) => {
+  try {
+    const { limit = 50, desde, hasta } = req.query;
+
+    const conditions = ["c.estado = 'A'", "t.estado = 'A'"];
+    const params = [];
+
+    if (desde) {
+      params.push(desde);
+      conditions.push(`c.fecha >= $${params.length}`);
+    }
+    if (hasta) {
+      params.push(hasta);
+      conditions.push(`c.fecha <= $${params.length}`);
+    }
+
+    params.push(limit);
+
+    const query = `
+      SELECT 
+        t.id_tienda,
+        t.nombre AS tienda_nombre,
+        t.direccion,
+        t.municipio,
+        t.departamento,
+        t.pais,
+        COALESCE(SUM(c.puntos_usados), 0) AS puntos_redimidos,
+        COUNT(c.id_canje) AS total_canjes,
+        COUNT(DISTINCT c.id_usuario) AS usuarios_unicos,
+        ROW_NUMBER() OVER (ORDER BY COALESCE(SUM(c.puntos_usados), 0) DESC, COUNT(c.id_canje) DESC) AS posicion
+      FROM Tienda t
+      JOIN Canjes c ON c.id_tienda = t.id_tienda
+      WHERE ${conditions.join(' AND ')}
+      GROUP BY t.id_tienda, t.nombre, t.direccion, t.municipio, t.departamento, t.pais
+      ORDER BY puntos_redimidos DESC, total_canjes DESC
+      LIMIT $${params.length}
+    `;
+
+    const resultado = await db.query(query, params);
+
+    res.json({
+      success: true,
+      data: resultado.rows
+    });
+
+  } catch (error) {
+    console.error('Error al obtener ranking de tiendas:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Error interno del servidor" 
+    });
+  }
+};
+
 // Obtener ranking de usuarios por puntos
 const obtenerRankingUsuarios = async (req, res) => {
   try {
@@ -199,6 +254,7 @@ const obtenerEstadisticasRanking = async (req, res) => {
 };
 
 module.exports = {
+  obtenerRankingTiendas,
   obtenerRankingUsuarios,
   obtenerPosicionUsuario,
   actualizarHistorialPuntaje,

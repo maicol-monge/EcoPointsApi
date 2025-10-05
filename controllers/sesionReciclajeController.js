@@ -153,6 +153,27 @@ const confirmarSesionReciclaje = async (req, res) => {
       [puntos, id_usuario]
     );
 
+    // Obtener total actualizado de puntos del usuario
+    const totalActual = await client.query(
+      `SELECT puntos_acumulados FROM Usuarios WHERE id_usuario = $1`,
+      [id_usuario]
+    );
+    const totalPuntos = parseInt(totalActual.rows[0].puntos_acumulados, 10) || 0;
+
+    // Calcular posición actual del usuario (después de sumar puntos)
+    const pos = await client.query(
+      `SELECT COUNT(*) + 1 AS posicion
+       FROM Usuarios WHERE estado = 'A' AND puntos_acumulados > $1`,
+      [totalPuntos]
+    );
+
+    // Insertar snapshot en HistorialPuntaje con el total actual de puntos
+    await client.query(
+      `INSERT INTO HistorialPuntaje (id_usuario, puntosmaximos, posicion, estado)
+       VALUES ($1, $2, $3, 'A')`,
+      [id_usuario, totalPuntos, pos.rows[0].posicion]
+    );
+
     // Marcar sesión como confirmada
     await client.query(
       `UPDATE ReciclajeSesiones SET estado = 'CONFIRMADA', confirmado_por = $2, confirmado_en = NOW() WHERE id = $1`,
