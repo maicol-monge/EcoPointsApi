@@ -153,26 +153,32 @@ const confirmarSesionReciclaje = async (req, res) => {
       [puntos, id_usuario]
     );
 
-    // Obtener total actualizado de puntos del usuario
-    const totalActual = await client.query(
-      `SELECT puntos_acumulados FROM Usuarios WHERE id_usuario = $1`,
+    // HistorialPuntaje: crear si es el primer reciclaje del usuario;
+    // si ya existe, solo incrementar puntosmaximos por los puntos ganados en este reciclaje.
+    const existeHist = await client.query(
+      `SELECT 1 FROM HistorialPuntaje WHERE id_usuario = $1 AND estado = 'A' LIMIT 1`,
       [id_usuario]
     );
-    const totalPuntos = parseInt(totalActual.rows[0].puntos_acumulados, 10) || 0;
 
-    // Calcular posición actual del usuario (después de sumar puntos)
-    const pos = await client.query(
-      `SELECT COUNT(*) + 1 AS posicion
-       FROM Usuarios WHERE estado = 'A' AND puntos_acumulados > $1`,
-      [totalPuntos]
-    );
-
-    // Insertar snapshot en HistorialPuntaje con el total actual de puntos
-    await client.query(
-      `INSERT INTO HistorialPuntaje (id_usuario, puntosmaximos, posicion, estado)
-       VALUES ($1, $2, $3, 'A')`,
-      [id_usuario, totalPuntos, pos.rows[0].posicion]
-    );
+    if (existeHist.rows.length === 0) {
+      await client.query(
+        `INSERT INTO HistorialPuntaje (id_usuario, puntosmaximos, posicion, estado, fecha_actualizacion)
+         VALUES ($1, $2, NULL, 'A', NOW())`,
+        [id_usuario, puntos]
+      );
+    } else {
+      await client.query(
+        `UPDATE HistorialPuntaje h
+         SET puntosmaximos = h.puntosmaximos + $2, fecha_actualizacion = NOW()
+         WHERE h.ctid = (
+           SELECT ctid FROM HistorialPuntaje
+           WHERE id_usuario = $1 AND estado = 'A'
+           ORDER BY fecha_actualizacion DESC NULLS LAST
+           LIMIT 1
+         )`,
+        [id_usuario, puntos]
+      );
+    }
 
     // Marcar sesión como confirmada
     await client.query(
