@@ -131,60 +131,74 @@ const obtenerPosicionUsuario = async (req, res) => {
   }
 };
 
-// Actualizar historial de puntajes
+// Actualizar/reconciliar historial de puntajes (histórico):
+// Establece puntosmaximos = SUM(puntos_ganados) de Reciclajes 'A'.
+// Si no existe historial activo, crea uno; si existe, actualiza el último activo.
 const actualizarHistorialPuntaje = async (req, res) => {
+  const client = await db.connect();
   try {
     const { id_usuario } = req.body;
 
     if (!id_usuario) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "ID de usuario requerido" 
-      });
+      return res.status(400).json({ success: false, message: "ID de usuario requerido" });
     }
 
-    // Obtener puntos actuales del usuario
-    const usuario = await db.query(
-      'SELECT puntos_acumulados FROM Usuarios WHERE id_usuario = $1 AND estado = $2',
-      [id_usuario, 'A']
+    // Verificar usuario activo
+    const usr = await client.query(
+      `SELECT 1 FROM Usuarios WHERE id_usuario = $1 AND estado = 'A'`,
+      [id_usuario]
     );
-
-    if (usuario.rows.length === 0) {
-      return res.status(404).json({ 
-        success: false, 
-        message: "Usuario no encontrado" 
-      });
+    if (usr.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "Usuario no encontrado" });
     }
 
-    // Obtener posición actual
-    const posicion = await db.query(
-      `SELECT COUNT(*) + 1 as posicion
-       FROM Usuarios 
-       WHERE puntos_acumulados > $1 AND estado = 'A'`,
-      [usuario.rows[0].puntos_acumulados]
+    await client.query('BEGIN');
+
+    // Sumar puntos de reciclajes activos
+    const suma = await client.query(
+      `SELECT COALESCE(SUM(puntos_ganados), 0) AS total
+       FROM Reciclajes WHERE id_usuario = $1 AND estado = 'A'`,
+      [id_usuario]
+    );
+    const totalHistorico = parseInt(suma.rows[0].total, 10) || 0;
+
+    // Ver si existe historial activo
+    const existe = await client.query(
+      `SELECT ctid FROM HistorialPuntaje WHERE id_usuario = $1 AND estado = 'A' ORDER BY fecha_actualizacion DESC NULLS LAST LIMIT 1`,
+      [id_usuario]
     );
 
-    // Insertar en historial
-    const historial = await db.query(
-      `INSERT INTO HistorialPuntaje 
-       (id_usuario, puntosmaximos, posicion, estado) 
-       VALUES ($1, $2, $3, 'A') 
-       RETURNING *`,
-      [id_usuario, usuario.rows[0].puntos_acumulados, posicion.rows[0].posicion]
-    );
+    let result;
+    if (existe.rows.length === 0) {
+      result = await client.query(
+        `INSERT INTO HistorialPuntaje (id_usuario, puntosmaximos, posicion, estado, fecha_actualizacion)
+         VALUES ($1, $2, NULL, 'A', NOW()) RETURNING *`,
+        [id_usuario, totalHistorico]
+      );
+    } else {
+      result = await client.query(
+        `UPDATE HistorialPuntaje h
+         SET puntosmaximos = $2, fecha_actualizacion = NOW()
+         WHERE h.ctid = $3
+         RETURNING *`,
+        [id_usuario, totalHistorico, existe.rows[0].ctid]
+      );
+    }
 
-    res.status(201).json({
+    await client.query('COMMIT');
+
+    res.status(200).json({
       success: true,
-      message: "Historial actualizado exitosamente",
-      data: historial.rows[0]
+      message: 'Historial reconciliado correctamente',
+      data: result.rows[0]
     });
 
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Error al actualizar historial:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Error interno del servidor" 
-    });
+    res.status(500).json({ success: false, message: "Error interno del servidor" });
+  } finally {
+    client.release();
   }
 };
 
