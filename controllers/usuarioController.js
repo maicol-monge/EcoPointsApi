@@ -241,11 +241,38 @@ const obtenerHistorialCanjes = async (req, res) => {
   }
 };
 
+// Obtener solo los puntos acumulados de un usuario
+const obtenerPuntosUsuario = async (req, res) => {
+    try {
+      const { id_usuario } = req.params;
+      const result = await db.query(
+        `SELECT puntos_acumulados FROM Usuarios WHERE id_usuario = $1 AND estado = 'A'`,
+        [id_usuario]
+      );
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Usuario no encontrado' });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          id_usuario: Number(id_usuario),
+          puntos_acumulados: parseInt(result.rows[0].puntos_acumulados, 10) || 0,
+        },
+      });
+    } catch (error) {
+      console.error('Error al obtener puntos del usuario:', error);
+      return res.status(500).json({ success: false, message: 'Error interno del servidor' });
+    }
+  }
+
 module.exports = {
   registrarUsuario,
   loginUsuario,
   obtenerPerfilUsuario,
   actualizarPuntos,
   obtenerHistorialReciclajes,
-  obtenerHistorialCanjes
+  obtenerHistorialCanjes,
+  obtenerPuntosUsuario
 };

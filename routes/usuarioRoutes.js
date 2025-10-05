@@ -5,7 +5,8 @@ const {
   loginUsuario,
   obtenerPerfilUsuario,
   obtenerHistorialReciclajes,
-  obtenerHistorialCanjes
+  obtenerHistorialCanjes,
+  obtenerPuntosUsuario
 } = require("../controllers/usuarioController");
 
 // ======================
@@ -20,6 +21,9 @@ router.post("/login", loginUsuario);
 
 // GET /api/usuarios/perfil/:id_usuario - Obtener perfil de usuario
 router.get("/perfil/:id_usuario", obtenerPerfilUsuario);
+
+// GET /api/usuarios/:id_usuario/puntos - Obtener puntos acumulados
+router.get("/:id_usuario/puntos", obtenerPuntosUsuario);
 
 // GET /api/usuarios/:id_usuario/reciclajes - Historial de reciclajes
 router.get("/:id_usuario/reciclajes", obtenerHistorialReciclajes);
