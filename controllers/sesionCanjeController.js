@@ -214,22 +214,7 @@ const confirmarSesionCanje = async (req, res) => {
       [cantidadU, s.id_producto]
     );
 
-    // Obtener total actualizado de puntos del usuario
-    const totalActual = puntosActuales - costoActual;
-
-    // Calcular posición actual del usuario después de la deducción
-    const pos = await client.query(
-      `SELECT COUNT(*) + 1 AS posicion
-       FROM Usuarios WHERE estado = 'A' AND puntos_acumulados > $1`,
-      [totalActual]
-    );
-
-    // Insertar snapshot en HistorialPuntaje
-    await client.query(
-      `INSERT INTO HistorialPuntaje (id_usuario, puntosmaximos, posicion, estado)
-       VALUES ($1, $2, $3, 'A')`,
-      [id_usuario, totalActual, pos.rows[0].posicion]
-    );
+    // Nota: No se inserta snapshot en HistorialPuntaje para deducciones de puntos.
 
     // Marcar sesión como confirmada
     await client.query(
