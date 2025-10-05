@@ -393,12 +393,19 @@ const eliminarProducto = async (req, res) => {
 // Nuevos listados por stock
 const obtenerProductosAgotados = async (req, res) => {
     try {
+      const { id_tienda } = req.query;
+      const tiendaId = parseInt(id_tienda, 10);
+      if (!id_tienda || isNaN(tiendaId)) {
+        return res.status(400).json({ success: false, message: 'id_tienda requerido y debe ser numérico' });
+      }
+
       const productos = await db.query(
         `SELECT p.*, t.nombre as tienda_nombre, t.direccion as tienda_direccion
          FROM Productos p
          JOIN Tienda t ON p.id_tienda = t.id_tienda
-         WHERE p.estado = 'A' AND t.estado = 'A' AND p.stock <= 0
-         ORDER BY p.nombre`
+         WHERE p.estado = 'A' AND t.estado = 'A' AND p.stock <= 0 AND p.id_tienda = $1
+         ORDER BY p.nombre`,
+        [tiendaId]
       );
 
       const productosConImagenes = await Promise.all(
@@ -422,12 +429,19 @@ const obtenerProductosAgotados = async (req, res) => {
 
   const obtenerProductosConStock = async (req, res) => {
     try {
+      const { id_tienda } = req.query;
+      const tiendaId = parseInt(id_tienda, 10);
+      if (!id_tienda || isNaN(tiendaId)) {
+        return res.status(400).json({ success: false, message: 'id_tienda requerido y debe ser numérico' });
+      }
+
       const productos = await db.query(
         `SELECT p.*, t.nombre as tienda_nombre, t.direccion as tienda_direccion
          FROM Productos p
          JOIN Tienda t ON p.id_tienda = t.id_tienda
-         WHERE p.estado = 'A' AND p.stock > 0 AND t.estado = 'A'
-         ORDER BY p.nombre`
+         WHERE p.estado = 'A' AND p.stock > 0 AND t.estado = 'A' AND p.id_tienda = $1
+         ORDER BY p.nombre`,
+        [tiendaId]
       );
 
       const productosConImagenes = await Promise.all(
@@ -451,12 +465,19 @@ const obtenerProductosAgotados = async (req, res) => {
 
   const obtenerTodosProductos = async (req, res) => {
     try {
+      const { id_tienda } = req.query;
+      const tiendaId = parseInt(id_tienda, 10);
+      if (!id_tienda || isNaN(tiendaId)) {
+        return res.status(400).json({ success: false, message: 'id_tienda requerido y debe ser numérico' });
+      }
+
       const productos = await db.query(
         `SELECT p.*, t.nombre as tienda_nombre, t.direccion as tienda_direccion
          FROM Productos p
          JOIN Tienda t ON p.id_tienda = t.id_tienda
-         WHERE p.estado = 'A' AND t.estado = 'A'
-         ORDER BY p.nombre`
+         WHERE p.estado = 'A' AND t.estado = 'A' AND p.id_tienda = $1
+         ORDER BY p.nombre`,
+        [tiendaId]
       );
 
       const productosConImagenes = await Promise.all(
