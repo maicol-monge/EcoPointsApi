@@ -42,7 +42,7 @@ async function solicitarReset(req, res) {
     `, [t, id, token, expires]);
 
     // Enviar correo con el enlace de restablecimiento
-    const base = process.env.FRONTEND_BASE_URL || 'http://localhost:5173';
+    const base = process.env.FRONTEND_BASE_URL || 'https://ecopointspasswordreset.onrender.com';
     const enlace = `${base.replace(/\/$/, '')}/reset?token=${encodeURIComponent(token)}&tipo=${encodeURIComponent(t)}`;
 
     try {
@@ -52,6 +52,7 @@ async function solicitarReset(req, res) {
         tipo: t,
         displayName: t === 'usuario' ? 'usuario' : 'tienda'
       });
+      console.log(`Enlace de restablecimiento enviado a ${correo}: ${enlace}`);
     } catch (mailErr) {
       console.error('Error enviando correo de reset:', mailErr);
       // No revelamos el error al cliente por seguridad
