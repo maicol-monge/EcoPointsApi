@@ -45,20 +45,22 @@ async function solicitarReset(req, res) {
     const base = process.env.FRONTEND_BASE_URL || 'https://ecopointspasswordreset.onrender.com';
     const enlace = `${base.replace(/\/$/, '')}/reset?token=${encodeURIComponent(token)}&tipo=${encodeURIComponent(t)}`;
 
-    try {
-      await sendPasswordResetEmail({
-        to: correo,
-        link: enlace,
-        tipo: t,
-        displayName: t === 'usuario' ? 'usuario' : 'tienda'
-      });
-      console.log(`Enlace de restablecimiento enviado a ${correo}: ${enlace}`);
-    } catch (mailErr) {
-      console.error('Error enviando correo de reset:', mailErr);
-      // No revelamos el error al cliente por seguridad
-    }
+    // Enviar email en background para no bloquear la respuesta HTTP
+    setImmediate(async () => {
+      try {
+        await sendPasswordResetEmail({
+          to: correo,
+          link: enlace,
+          tipo: t,
+          displayName: t === 'usuario' ? 'usuario' : 'tienda'
+        });
+        console.log(`[password-reset] Enlace enviado a ${correo}: ${enlace}`);
+      } catch (mailErr) {
+        console.error('[password-reset] Error enviando correo de reset:', mailErr);
+      }
+    });
 
-    // Responder genérico
+    // Responder inmediatamente
     return res.json({ success: true, message: 'Si el correo existe, se enviará un enlace de restablecimiento.' });
   } catch (error) {
     console.error('Error en solicitarReset:', error);

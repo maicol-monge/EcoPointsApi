@@ -1,5 +1,25 @@
 const nodemailer = require('nodemailer');
 
+function canUseResend() {
+  return !!process.env.RESEND_API_KEY;
+}
+
+async function sendViaResend({ to, subject, text, html }) {
+  // Carga perezosa para no romper si no está instalado localmente
+  let Resend;
+  try {
+    Resend = require('@resend/node').Resend;
+  } catch (e) {
+    throw new Error('Paquete @resend/node no instalado. Agrega a dependencies o desactiva RESEND_API_KEY');
+  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'onboarding@resend.dev';
+  const result = await resend.emails.send({ from, to, subject, text, html });
+  if (result.error) {
+    throw result.error;
+  }
+}
+
 function createTransporter() {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
@@ -12,7 +32,16 @@ function createTransporter() {
 
   if (host && user && pass) {
     const secure = port === 465; // true for 465, false for other ports
-    return nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure,
+      auth: { user, pass },
+      // timeouts (ms)
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
+    });
   }
 
   if (gmailUser && gmailPass) {
@@ -20,6 +49,9 @@ function createTransporter() {
     return nodemailer.createTransport({
       service: 'gmail',
       auth: { user: gmailUser, pass: gmailPass },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
   }
 
@@ -27,7 +59,6 @@ function createTransporter() {
 }
 
 async function sendPasswordResetEmail({ to, link, tipo, displayName }) {
-  const transporter = createTransporter();
   const from = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'no-reply@ecopoints.local';
 
   const subject = 'Restablecimiento de contraseña - EcoPoints';
@@ -54,6 +85,14 @@ async function sendPasswordResetEmail({ to, link, tipo, displayName }) {
     </div>
   `;
 
+  // Usar Resend (HTTPS) si hay API key, para evitar bloqueos SMTP en PaaS
+  if (canUseResend()) {
+    await sendViaResend({ to, subject, text: plain, html });
+    return;
+  }
+
+  // Fallback SMTP
+  const transporter = createTransporter();
   await transporter.sendMail({ from, to, subject, text: plain, html });
 }
 

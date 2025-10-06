@@ -22,6 +22,7 @@ const allowedOrigins = [
   'https://controlcitas-frontend-production.up.railway.app',
   'http://localhost:5173', // desarrollo web
   'http://localhost:3000', // desarrollo web alternativo
+  'https://ecopointspasswordreset.onrender.com', // frontend de reset en Render
   // Agregar aquí otros orígenes según sea necesario
 ];
 
@@ -52,13 +53,7 @@ testConnection().then(connected => {
   }
 });
 
-// Iniciar servidor
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor backend corriendo en el puerto ${PORT}`);
-});
-
-// Rutas de la API de Reciclaje
+// Rutas de la API de Reciclaje (ANTES de app.listen)
 app.use("/api/usuarios", usuarioRoutes);
 app.use("/api/tiendas", tiendaRoutes);
 app.use("/api/productos", productoRoutes);
@@ -77,4 +72,10 @@ app.get("/api/status", (req, res) => {
     timestamp: new Date().toISOString(),
     version: "1.0.0"
   });
+});
+
+// Iniciar servidor
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`🚀 Servidor backend corriendo en el puerto ${PORT}`);
 });
