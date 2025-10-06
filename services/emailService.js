@@ -8,9 +8,9 @@ async function sendViaResend({ to, subject, text, html }) {
   // Carga perezosa para no romper si no está instalado localmente
   let Resend;
   try {
-    Resend = require('@resend/node').Resend;
+    Resend = require('resend').Resend;
   } catch (e) {
-    throw new Error('Paquete @resend/node no instalado. Agrega a dependencies o desactiva RESEND_API_KEY');
+    throw new Error('Paquete "resend" no instalado. Agrega a dependencies o desactiva RESEND_API_KEY');
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
   const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'onboarding@resend.dev';
