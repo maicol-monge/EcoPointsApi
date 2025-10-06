@@ -60,6 +60,10 @@ function createTransporter() {
 
 async function sendPasswordResetEmail({ to, link, tipo, displayName }) {
   const from = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'no-reply@ecopoints.local';
+  if (String(process.env.SKIP_EMAIL_SEND).toLowerCase() === 'true') {
+    console.warn('[email] SKIP_EMAIL_SEND=true - no se enviará correo. Destinatario:', to);
+    return;
+  }
 
   const subject = 'Restablecimiento de contraseña - EcoPoints';
   const plain = `Hola ${displayName || ''}\n\n` +

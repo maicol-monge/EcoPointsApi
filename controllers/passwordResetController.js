@@ -46,6 +46,10 @@ async function solicitarReset(req, res) {
     const enlace = `${base.replace(/\/$/, '')}/reset?token=${encodeURIComponent(token)}&tipo=${encodeURIComponent(t)}`;
 
     // Enviar email en background para no bloquear la respuesta HTTP
+    if (String(process.env.LOG_RESET_LINKS).toLowerCase() === 'true') {
+      console.info('[password-reset] Link generado:', enlace);
+    }
+
     setImmediate(async () => {
       try {
         await sendPasswordResetEmail({
