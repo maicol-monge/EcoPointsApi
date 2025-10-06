@@ -87,11 +87,13 @@ async function sendPasswordResetEmail({ to, link, tipo, displayName }) {
 
   // Usar Resend (HTTPS) si hay API key, para evitar bloqueos SMTP en PaaS
   if (canUseResend()) {
+    console.info('[email] Using Resend transport');
     await sendViaResend({ to, subject, text: plain, html });
     return;
   }
 
   // Fallback SMTP
+  console.info('[email] Using SMTP/Gmail transport');
   const transporter = createTransporter();
   await transporter.sendMail({ from, to, subject, text: plain, html });
 }
