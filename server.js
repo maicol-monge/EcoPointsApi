@@ -74,6 +74,93 @@ app.get("/api/status", (req, res) => {
   });
 });
 
+// Página mínima de restablecimiento (fallback) - útil si el frontend no está desplegado
+app.get('/reset', (req, res) => {
+  const html = `<!doctype html>
+  <html>
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width,initial-scale=1" />
+      <title>Restablecer contraseña - EcoPoints (fallback)</title>
+      <style>body{font-family:Arial,Helvetica,sans-serif;padding:20px;max-width:700px;margin:0 auto}label{display:block;margin-top:12px}input{width:100%;padding:8px;margin-top:6px}button{margin-top:12px;padding:10px 14px}</style>
+    </head>
+    <body>
+      <h1>Restablecer contraseña</h1>
+      <p>Si llegaste aquí desde un correo, el token está en la URL. Ej: <code>?token=....&tipo=usuario</code></p>
+      <div id="message" style="color:#b00"></div>
+      <form id="resetForm">
+        <label>Nueva contraseña
+          <input id="password" type="password" required minlength="8" />
+        </label>
+        <label>Confirmar contraseña
+          <input id="password2" type="password" required minlength="8" />
+        </label>
+        <button type="submit">Actualizar contraseña</button>
+      </form>
+
+      <script>
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+        const tipo = params.get('tipo');
+        const msg = document.getElementById('message');
+        const form = document.getElementById('resetForm');
+        if (!token) {
+          msg.textContent = 'Token no encontrado en la URL. Asegúrate de abrir el enlace desde el correo.';
+          form.style.display = 'none';
+        }
+
+        // Optional: validate token with backend
+        async function validar() {
+          try {
+            const r = await fetch('/api/password/validar/' + encodeURIComponent(token));
+            if (!r.ok) {
+              const body = await r.json().catch(()=>null);
+              msg.textContent = 'Token inválido o expirado: ' + (body && body.message ? body.message : r.statusText);
+              form.style.display = 'none';
+            } else {
+              const data = await r.json();
+              msg.style.color = '#080';
+              msg.textContent = 'Token válido para tipo: ' + (data.data && data.data.tipo ? data.data.tipo : tipo);
+            }
+          } catch(e) {
+            msg.textContent = 'Error validando token: ' + e.message;
+            form.style.display = 'none';
+          }
+        }
+
+        if (token) validar();
+
+        form.addEventListener('submit', async (ev)=>{
+          ev.preventDefault();
+          msg.style.color = '#b00';
+          msg.textContent = '';
+          const p1 = document.getElementById('password').value;
+          const p2 = document.getElementById('password2').value;
+          if (p1 !== p2) { msg.textContent = 'Las contraseñas no coinciden'; return; }
+          try {
+            const r = await fetch('/api/password/confirmar/' + encodeURIComponent(token), {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ password_nueva: p1 })
+            });
+            const body = await r.json().catch(()=>null);
+            if (!r.ok) {
+              msg.textContent = 'Error: ' + (body && body.message ? body.message : r.statusText);
+            } else {
+              msg.style.color = '#080';
+              msg.textContent = (body && body.message) ? body.message : 'Contraseña actualizada correctamente';
+              form.reset();
+            }
+          } catch(e) {
+            msg.textContent = 'Error al actualizar contraseña: ' + e.message;
+          }
+        });
+      </script>
+    </body>
+  </html>`;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(html);
+});
+
 // Iniciar servidor
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
