@@ -163,6 +163,22 @@ app.get('/reset', (req, res) => {
 
 // Iniciar servidor
 const PORT = process.env.PORT || 5000;
+// Root quick-check route
+app.get('/', (req, res) => {
+  res.json({ success: true, message: 'EcoPoints API root - alive', timestamp: new Date().toISOString() });
+});
+
+// Global error handlers to help diagnosing crashes in hosted environments
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception thrown:', err);
+  // It's safer to exit after an uncaught exception so the process can be restarted by the host
+  process.exit(1);
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Servidor backend corriendo en el puerto ${PORT}`);
 });
