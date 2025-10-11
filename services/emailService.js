@@ -31,8 +31,16 @@ async function sendViaSendGrid({ to, subject, text, html }) {
     text,
     html,
   };
-  const result = await sgMail.send(msg);
-  return result;
+  try {
+    const result = await sgMail.send(msg);
+    return result;
+  } catch (err) {
+    // Log detailed SendGrid error body if available
+    if (err && err.response && err.response.body) {
+      console.error('[email][sendgrid] response body:', JSON.stringify(err.response.body));
+    }
+    throw err;
+  }
 }
 
 async function sendViaResend({ to, subject, text, html }) {
