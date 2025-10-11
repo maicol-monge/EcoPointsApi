@@ -32,7 +32,7 @@ function createTransporter() {
 
   if (host && user && pass) {
     const secure = port === 465; // true for 465, false for other ports
-    return nodemailer.createTransport({
+    const opts = {
       host,
       port,
       secure,
@@ -41,18 +41,35 @@ function createTransporter() {
       connectionTimeout: 10000,
       greetingTimeout: 10000,
       socketTimeout: 15000,
-    });
+    };
+    if (String(process.env.DEBUG_EMAIL).toLowerCase() === 'true') {
+      opts.logger = true;
+      opts.debug = true;
+      // opcional: evitar errores TLS en entornos de prueba (NO recomendado en producción)
+      opts.tls = opts.tls || {};
+      opts.tls.rejectUnauthorized = false;
+      console.info('[email] DEBUG_EMAIL=true - transporter options:', { host, port, secure, user: user ? user.replace(/.(?=.{2})/g, '*') : null });
+    }
+    return nodemailer.createTransport(opts);
   }
 
   if (gmailUser && gmailPass) {
     // Requiere App Password en cuentas Gmail (ya proporcionado en .env)
-    return nodemailer.createTransport({
+    const opts = {
       service: 'gmail',
       auth: { user: gmailUser, pass: gmailPass },
       connectionTimeout: 10000,
       greetingTimeout: 10000,
       socketTimeout: 15000,
-    });
+    };
+    if (String(process.env.DEBUG_EMAIL).toLowerCase() === 'true') {
+      opts.logger = true;
+      opts.debug = true;
+      opts.tls = opts.tls || {};
+      opts.tls.rejectUnauthorized = false;
+      console.info('[email] DEBUG_EMAIL=true - Gmail transporter options for user:', gmailUser.replace(/.(?=.{2})/g, '*'));
+    }
+    return nodemailer.createTransport(opts);
   }
 
   throw new Error('Email configuration missing: set SMTP_* or EMAIL_USER/EMAIL_PASS');
