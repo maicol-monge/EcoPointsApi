@@ -370,10 +370,6 @@ const eliminarProducto = async (req, res) => {
       [id_producto]
     );
 
-    // Eliminar imagen si existe
-    if (producto.rows[0].imagen) {
-      await eliminarImagen(producto.rows[0].imagen);
-    }
 
     res.json({
       success: true,

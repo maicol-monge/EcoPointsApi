@@ -73,6 +73,7 @@ async function solicitarReset(req, res) {
 }
 
 // Verifica si un token es válido
+// Verifica si un token es válido y devuelve displayName además de tipo/id
 async function validarToken(req, res) {
   try {
     const { token } = req.params;
@@ -96,7 +97,32 @@ async function validarToken(req, res) {
       return res.status(400).json({ success: false, message: 'Token expirado' });
     }
 
-    return res.json({ success: true, data: { tipo: row.tipo, id_referencia: row.id_referencia } });
+    // Obtener displayName según tipo
+    let displayName = null;
+    if (row.tipo === 'usuario') {
+      const userQ = await db.query(
+        `SELECT nombre, apellido, correo FROM Usuarios WHERE id_usuario = $1 AND estado = 'A'`,
+        [row.id_referencia]
+      );
+      if (userQ.rows.length) {
+        const u = userQ.rows[0];
+        displayName = [u.nombre, u.apellido].filter(Boolean).join(' ') || u.correo;
+      }
+    } else if (row.tipo === 'tienda') {
+      const shopQ = await db.query(
+        `SELECT nombre, correo FROM Tienda WHERE id_tienda = $1 AND estado = 'A'`,
+        [row.id_referencia]
+      );
+      if (shopQ.rows.length) {
+        const s = shopQ.rows[0];
+        displayName = s.nombre || s.correo;
+      }
+    }
+
+    return res.json({
+      success: true,
+      data: { tipo: row.tipo, id_referencia: row.id_referencia, displayName }
+    });
   } catch (error) {
     console.error('Error en validarToken:', error);
     return res.status(500).json({ success: false, message: 'Error interno del servidor' });
