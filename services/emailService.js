@@ -1,6 +1,8 @@
 const nodemailer = require('nodemailer');
 
 function canUseResend() {
+  // Allow forcing SMTP with FORCE_SMTP=true
+  if (String(process.env.FORCE_SMTP).toLowerCase() === 'true') return false;
   return !!process.env.RESEND_API_KEY;
 }
 
@@ -14,7 +16,22 @@ async function sendViaResend({ to, subject, text, html }) {
   }
   const resend = new Resend(process.env.RESEND_API_KEY);
   const from = process.env.RESEND_FROM || process.env.EMAIL_FROM || 'onboarding@resend.dev';
-  const result = await resend.emails.send({ from, to, subject, text, html });
+  // Normalizar 'from' si el usuario puso: Name email@domain (sin < >)
+  let finalFrom = String(from || '').trim();
+  // Si contiene un espacio y contiene un email, y no tiene < >, intentar envolver
+  const emailMatch = finalFrom.match(/([\w.+-]+@[\w.-]+\.[\w.-]+)/);
+  if (emailMatch && !/[<>]/.test(finalFrom)) {
+    // Extraer posible nombre
+    const possibleName = finalFrom.replace(emailMatch[0], '').trim();
+    if (possibleName) {
+      finalFrom = `${possibleName} <${emailMatch[0]}>`;
+    } else {
+      finalFrom = emailMatch[0];
+    }
+  }
+
+  console.info('[email] Resend send from:', finalFrom);
+  const result = await resend.emails.send({ from: finalFrom, to, subject, text, html });
   if (result.error) {
     throw result.error;
   }
