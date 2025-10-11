@@ -6,6 +6,35 @@ function canUseResend() {
   return !!process.env.RESEND_API_KEY;
 }
 
+function canUseSendGrid() {
+  // Allow forcing SMTP even if SendGrid present via FORCE_SMTP
+  if (String(process.env.FORCE_SMTP).toLowerCase() === 'true') return false;
+  return !!process.env.SENDGRID_API_KEY;
+}
+
+async function sendViaSendGrid({ to, subject, text, html }) {
+  let sgMail;
+  try {
+    sgMail = require('@sendgrid/mail');
+  } catch (e) {
+    throw new Error('Paquete "@sendgrid/mail" no instalado. Agrega a dependencies o desactiva SENDGRID_API_KEY');
+  }
+  sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+  const from = process.env.SENDGRID_FROM || process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  // Normalize from if needed
+  const finalFrom = String(from || '').trim();
+  console.info('[email] SendGrid send from:', finalFrom);
+  const msg = {
+    to,
+    from: finalFrom,
+    subject,
+    text,
+    html,
+  };
+  const result = await sgMail.send(msg);
+  return result;
+}
+
 async function sendViaResend({ to, subject, text, html }) {
   // Carga perezosa para no romper si no está instalado localmente
   let Resend;
@@ -124,6 +153,13 @@ async function sendPasswordResetEmail({ to, link, tipo, displayName }) {
   `;
 
   // Usar Resend (HTTPS) si hay API key, para evitar bloqueos SMTP en PaaS
+  // Prefer SendGrid if available
+  if (canUseSendGrid()) {
+    console.info('[email] Using SendGrid transport');
+    await sendViaSendGrid({ to, subject, text: plain, html });
+    return;
+  }
+
   if (canUseResend()) {
     console.info('[email] Using Resend transport');
     await sendViaResend({ to, subject, text: plain, html });
